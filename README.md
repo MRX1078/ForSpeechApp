@@ -80,7 +80,7 @@
 ### 1) Подготовка окружения
 
 ```bash
-cd "/Users/maksimshatokhin/Documents/New project"
+cd /путь/к/папке/ForSpeechApp
 python3.11 -m venv .venv
 source .venv/bin/activate
 pip install --upgrade pip
@@ -118,7 +118,7 @@ WHISPER_MODEL_NAME=medium ./scripts/setup_whisper_cpp.sh
 
 ```bash
 source .venv/bin/activate
-export WHISPER_CPP_BIN="/Users/maksimshatokhin/Documents/New project/models/whisper.cpp/build/bin/whisper-cli"
+export WHISPER_CPP_BIN="$(pwd)/models/whisper.cpp/build/bin/whisper-cli"
 export WHISPER_LANGUAGE="ru"
 export WHISPER_MODEL_PRIORITY="large-v3,large-v2,medium,small,base"
 export WHISPER_BEAM_SIZE="8"
