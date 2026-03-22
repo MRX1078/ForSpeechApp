@@ -29,6 +29,7 @@ class SegmentResponse(BaseModel):
     meeting_id: str
     start_sec: float
     end_sec: float
+    speaker_label: Optional[str] = None
     text: str
     created_at: datetime
 
@@ -51,3 +52,7 @@ class MeetingSearchResult(BaseModel):
     end_sec: float
     text: str
     snippet: str
+
+
+class SegmentSpeakerUpdate(BaseModel):
+    speaker_label: Optional[str] = Field(default=None, max_length=64)

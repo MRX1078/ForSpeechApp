@@ -7,12 +7,25 @@
 </section>
 {% else %}
 <section class="card" data-meeting-id="{{ meeting.id }}" id="meetingDetailRoot">
-  <h1>{{ meeting.title }}</h1>
-  <p>
+  <div class="section-head">
+    <h1>{{ meeting.title }}</h1>
     <span class="badge {{ meeting.status }}" data-status="{{ meeting.status }}">{{ status_label_ru(meeting.status) }}</span>
-    <span class="muted">Создано: {{ meeting.created_at }}</span>
-    <span class="muted">Длительность: {{ "%.2f"|format(meeting.duration_sec or 0) }} сек</span>
-  </p>
+  </div>
+
+  <div class="meeting-meta-grid">
+    <div class="meta-chip">
+      <span class="muted">Создано</span>
+      <strong>{{ meeting.created_at }}</strong>
+    </div>
+    <div class="meta-chip">
+      <span class="muted">Длительность</span>
+      <strong>{{ "%.2f"|format(meeting.duration_sec or 0) }} сек</strong>
+    </div>
+    <div class="meta-chip">
+      <span class="muted">Сегментов</span>
+      <strong>{{ segments|length }}</strong>
+    </div>
+  </div>
 
   {% if meeting.error_message %}
     <p class="error">Ошибка: {{ meeting.error_message }}</p>
@@ -20,7 +33,7 @@
 
   <div class="actions">
     <form id="renameForm" class="inline-form">
-      <input id="renameInput" class="input" type="text" value="{{ meeting.title }}" maxlength="255" />
+      <input id="renameInput" class="input inline-input" type="text" value="{{ meeting.title }}" maxlength="255" />
       <button type="submit" class="btn">Переименовать</button>
     </form>
     <button id="reprocessBtn" class="btn">Переобработать</button>
@@ -31,7 +44,23 @@
       <a class="btn" href="/api/meetings/{{ meeting.id }}/audio-compressed">Скачать сжатое аудио</a>
     {% endif %}
   </div>
+</section>
 
+{% if meeting.compressed_audio_path %}
+<section class="card">
+  <h2>Плеер встречи</h2>
+  <audio id="meetingAudio" class="meeting-audio" controls preload="metadata" src="/api/meetings/{{ meeting.id }}/audio-compressed"></audio>
+  <div class="audio-control-row">
+    <button class="btn" type="button" data-seek="-10">-10 сек</button>
+    <button class="btn" type="button" data-seek="-5">-5 сек</button>
+    <button class="btn" type="button" data-seek="5">+5 сек</button>
+    <button class="btn" type="button" data-seek="10">+10 сек</button>
+    <span class="muted">Текущее время: <strong id="audioCurrentTime">00:00</strong></span>
+  </div>
+</section>
+{% endif %}
+
+<section class="card">
   <h2>Транскрипт</h2>
   <pre class="transcript-box">{{ meeting.transcript_text }}</pre>
 </section>
@@ -39,18 +68,23 @@
 <section class="card">
   <h2>Поиск внутри встречи</h2>
   <form method="GET" action="/meetings/{{ meeting.id }}" class="inline-form">
-    <input type="text" name="q" class="input" value="{{ q }}" placeholder="Введите фразу" />
+    <input type="text" name="q" class="input inline-input" value="{{ q }}" placeholder="Введите фразу" />
     <button class="btn" type="submit">Найти</button>
   </form>
 
   {% if q %}
     <h3>Результаты по запросу "{{ q }}"</h3>
     {% if meeting_search_results %}
-      <ul class="meeting-list">
+      <ul class="meeting-list rich-list">
         {% for row in meeting_search_results %}
           <li>
-            <div><strong>{{ "%.2f"|format(row.start_sec) }} - {{ "%.2f"|format(row.end_sec) }} сек</strong></div>
-            <div>{{ row.snippet | safe }}</div>
+            <div>
+              <div><strong>{{ "%.2f"|format(row.start_sec) }} - {{ "%.2f"|format(row.end_sec) }} сек</strong></div>
+              <div>{{ row.snippet | safe }}</div>
+            </div>
+            {% if meeting.compressed_audio_path %}
+              <button class="btn jump-btn" type="button" data-start="{{ row.start_sec }}">К таймкоду</button>
+            {% endif %}
           </li>
         {% endfor %}
       </ul>
@@ -61,14 +95,19 @@
 </section>
 
 <section class="card">
-  <h2>Сегменты</h2>
+  <div class="section-head">
+    <h2>Сегменты и говорящий</h2>
+    <span class="muted">Можно вручную проставить, кто говорит в каждом сегменте</span>
+  </div>
   {% if segments %}
     <table class="table">
       <thead>
         <tr>
           <th>Начало</th>
           <th>Конец</th>
+          <th>Спикер</th>
           <th>Текст</th>
+          <th></th>
         </tr>
       </thead>
       <tbody>
@@ -76,7 +115,20 @@
           <tr>
             <td>{{ "%.2f"|format(seg.start_sec) }}</td>
             <td>{{ "%.2f"|format(seg.end_sec) }}</td>
+            <td>
+              <select class="input speaker-select" data-segment-id="{{ seg.id }}">
+                <option value="" {% if not seg.speaker_label %}selected{% endif %}>Не указан</option>
+                <option value="Спикер 1" {% if seg.speaker_label == 'Спикер 1' %}selected{% endif %}>Спикер 1</option>
+                <option value="Спикер 2" {% if seg.speaker_label == 'Спикер 2' %}selected{% endif %}>Спикер 2</option>
+                <option value="Спикер 3" {% if seg.speaker_label == 'Спикер 3' %}selected{% endif %}>Спикер 3</option>
+              </select>
+            </td>
             <td>{{ seg.text }}</td>
+            <td>
+              {% if meeting.compressed_audio_path %}
+                <button class="btn jump-btn" type="button" data-start="{{ seg.start_sec }}">К таймкоду</button>
+              {% endif %}
+            </td>
           </tr>
         {% endfor %}
       </tbody>

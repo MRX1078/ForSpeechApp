@@ -2,6 +2,7 @@
 
 ## 1. What this app does
 This app records meetings from your Mac microphone in the browser, uploads audio to a local FastAPI backend (`127.0.0.1`), runs local preprocessing/transcription, stores transcript and segments in local SQLite, and provides full-text search with SQLite FTS5.
+In meeting details, you can listen to archived audio with seek controls and manually tag who speaks in each segment.
 
 Pipeline:
 1. Record audio via `MediaRecorder` in browser.
@@ -120,7 +121,7 @@ Pages:
 Search uses only SQLite FTS5 (`transcript_fts`).
 
 ## 11. Known MVP limitations
-- No speaker diarization.
+- No automatic speaker diarization (speaker tags are manual).
 - Recognition quality depends on model size and microphone quality.
 - Long meetings process with noticeable delay.
 - VAD segmentation can miss or split speech incorrectly.
@@ -144,6 +145,7 @@ Implemented API:
 - `GET /api/meetings/{meeting_id}`
 - `GET /api/meetings/{meeting_id}/transcript`
 - `PATCH /api/meetings/{meeting_id}`
+- `PATCH /api/meetings/{meeting_id}/segments/{segment_id}`
 - `DELETE /api/meetings/{meeting_id}`
 - `POST /api/meetings/{meeting_id}/reprocess`
 - `GET /api/search?q=...`

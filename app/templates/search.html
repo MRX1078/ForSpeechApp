@@ -2,7 +2,10 @@
 {% block title %}Глобальный поиск{% endblock %}
 {% block content %}
 <section class="card">
-  <h1>Поиск по всем встречам</h1>
+  <div class="section-head">
+    <h1>Поиск по всем встречам</h1>
+    <a class="btn" href="/meetings">Архив</a>
+  </div>
   <form method="GET" action="/search" class="inline-form">
     <input type="text" name="q" class="input" value="{{ q }}" placeholder="Поиск по тексту транскрипта" />
     <button type="submit" class="btn">Найти</button>
@@ -11,12 +14,15 @@
   {% if q %}
     <h2>Результаты по запросу "{{ q }}"</h2>
     {% if results %}
-      <ul class="meeting-list">
+      <ul class="meeting-list rich-list">
         {% for row in results %}
           <li>
-            <a href="/meetings/{{ row.meeting_id }}">{{ row.meeting_title }}</a>
-            <span class="muted">{{ row.meeting_created_at }}</span>
-            <div>{{ row.snippet | safe }}</div>
+            <div>
+              <a class="meeting-title" href="/meetings/{{ row.meeting_id }}">{{ row.meeting_title }}</a>
+              <div class="muted">{{ row.meeting_created_at }}</div>
+              <div>{{ row.snippet | safe }}</div>
+            </div>
+            <a class="btn" href="/meetings/{{ row.meeting_id }}">Открыть</a>
           </li>
         {% endfor %}
       </ul>

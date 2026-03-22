@@ -31,7 +31,8 @@ class ExportService:
         lines.append("Сегменты:")
 
         for seg in segments:
-            lines.append(f"[{seg['start_sec']:.2f} - {seg['end_sec']:.2f}] {seg['text']}")
+            speaker = f"{seg['speaker_label']}: " if seg.get("speaker_label") else ""
+            lines.append(f"[{seg['start_sec']:.2f} - {seg['end_sec']:.2f}] {speaker}{seg['text']}")
 
         content = "\n".join(lines)
         out_path = self.storage.export_txt_path(meeting_id)
@@ -67,7 +68,8 @@ class ExportService:
         lines.append("")
 
         for seg in segments:
-            lines.append(f"- `{seg['start_sec']:.2f}` - `{seg['end_sec']:.2f}`: {seg['text']}")
+            speaker = f"**{seg['speaker_label']}**: " if seg.get("speaker_label") else ""
+            lines.append(f"- `{seg['start_sec']:.2f}` - `{seg['end_sec']:.2f}`: {speaker}{seg['text']}")
 
         content = "\n".join(lines)
         out_path = self.storage.export_md_path(meeting_id)

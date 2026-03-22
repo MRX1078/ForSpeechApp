@@ -4,7 +4,13 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 
 from app.database import Database
 from app.deps import get_db, get_storage_service, get_transcript_pipeline
-from app.schemas import MeetingResponse, MeetingTranscriptResponse, MeetingUpdate, SegmentResponse
+from app.schemas import (
+    MeetingResponse,
+    MeetingTranscriptResponse,
+    MeetingUpdate,
+    SegmentResponse,
+    SegmentSpeakerUpdate,
+)
 from app.services.storage import StorageService
 from app.services.transcript_pipeline import TranscriptPipeline
 
@@ -88,3 +94,29 @@ def reprocess_meeting(
     if refreshed is None:
         raise HTTPException(status_code=404, detail="Meeting not found")
     return refreshed
+
+
+@router.patch("/{meeting_id}/segments/{segment_id}", response_model=SegmentResponse)
+def update_segment_speaker(
+    meeting_id: str,
+    segment_id: int,
+    payload: SegmentSpeakerUpdate,
+    db: Database = Depends(get_db),
+) -> dict:
+    meeting = db.get_meeting(meeting_id)
+    if meeting is None:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+
+    speaker_label = (payload.speaker_label or "").strip() or None
+    if speaker_label is not None and len(speaker_label) > 64:
+        raise HTTPException(status_code=400, detail="Speaker label is too long")
+
+    updated = db.update_segment_speaker(meeting_id, segment_id, speaker_label)
+    if not updated:
+        raise HTTPException(status_code=404, detail="Segment not found")
+
+    segments = db.get_segments(meeting_id)
+    segment = next((row for row in segments if row["id"] == segment_id), None)
+    if segment is None:
+        raise HTTPException(status_code=404, detail="Segment not found")
+    return segment

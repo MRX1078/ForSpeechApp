@@ -55,6 +55,7 @@ class Database:
                     meeting_id TEXT NOT NULL,
                     start_sec REAL NOT NULL,
                     end_sec REAL NOT NULL,
+                    speaker_label TEXT,
                     text TEXT NOT NULL,
                     created_at TEXT NOT NULL,
                     FOREIGN KEY(meeting_id) REFERENCES meetings(id) ON DELETE CASCADE
@@ -74,6 +75,7 @@ class Database:
                 """
             )
             self._ensure_column_exists(conn, "meetings", "compressed_audio_path", "TEXT")
+            self._ensure_column_exists(conn, "transcript_segments", "speaker_label", "TEXT")
 
     def _ensure_column_exists(
         self,
@@ -182,7 +184,7 @@ class Database:
         with self.connect() as conn:
             rows = conn.execute(
                 """
-                SELECT id, meeting_id, start_sec, end_sec, text, created_at
+                SELECT id, meeting_id, start_sec, end_sec, speaker_label, text, created_at
                 FROM transcript_segments
                 WHERE meeting_id = ?
                 ORDER BY start_sec ASC
@@ -190,6 +192,30 @@ class Database:
                 (meeting_id,),
             ).fetchall()
         return [dict(row) for row in rows]
+
+    def update_segment_speaker(
+        self,
+        meeting_id: str,
+        segment_id: int,
+        speaker_label: Optional[str],
+    ) -> bool:
+        with self.connect() as conn:
+            exists = conn.execute(
+                "SELECT 1 FROM transcript_segments WHERE id = ? AND meeting_id = ?",
+                (segment_id, meeting_id),
+            ).fetchone()
+            if not exists:
+                return False
+
+            conn.execute(
+                """
+                UPDATE transcript_segments
+                SET speaker_label = ?
+                WHERE id = ? AND meeting_id = ?
+                """,
+                (speaker_label, segment_id, meeting_id),
+            )
+            return True
 
     def reset_for_reprocess(self, meeting_id: str) -> None:
         with self.connect() as conn:
@@ -236,8 +262,8 @@ class Database:
                 cur = conn.execute(
                     """
                     INSERT INTO transcript_segments(
-                        meeting_id, start_sec, end_sec, text, created_at
-                    ) VALUES (?, ?, ?, ?, ?)
+                        meeting_id, start_sec, end_sec, speaker_label, text, created_at
+                    ) VALUES (?, ?, ?, NULL, ?, ?)
                     """,
                     (meeting_id, start_sec, end_sec, text, now),
                 )

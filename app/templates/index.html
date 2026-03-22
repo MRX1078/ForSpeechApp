@@ -1,35 +1,50 @@
 {% extends "base.html" %}
 {% block title %}Запись встречи{% endblock %}
 {% block content %}
-<section class="card">
-  <h1>Запись встречи</h1>
-  <p>Запишите встречу с микрофона Mac в браузере, затем запись обработается локально на этом ноутбуке.</p>
-
-  <label class="label" for="meetingTitle">Название встречи (необязательно)</label>
-  <input id="meetingTitle" class="input" type="text" placeholder="Еженедельный синк" maxlength="255" />
-
-  <div class="record-controls">
-    <button id="startRecordingBtn" class="btn btn-primary">Начать запись</button>
-    <button id="stopRecordingBtn" class="btn btn-danger" disabled>Остановить запись</button>
+<section class="card hero-card">
+  <div class="hero-top">
+    <div>
+      <h1>Запись встречи</h1>
+      <p class="hero-text">Нажмите старт, говорите, остановите запись. Дальше приложение само сохранит аудио, сделает сегменты и транскрипт.</p>
+    </div>
+    <div class="record-timer-box">
+      <span class="muted">Таймер</span>
+      <strong id="recordingTimer">00:00</strong>
+    </div>
   </div>
 
-  <div class="status-line">
-    <span>Статус:</span>
-    <span id="recordingStatusBadge" class="badge idle" data-status="idle">{{ status_label_ru("idle") }}</span>
+  <label class="label" for="meetingTitle">Название встречи</label>
+  <input id="meetingTitle" class="input" type="text" placeholder="Например: Планирование спринта" maxlength="255" />
+
+  <div class="record-controls">
+    <button id="startRecordingBtn" class="btn btn-primary btn-lg">Начать запись</button>
+    <button id="stopRecordingBtn" class="btn btn-danger btn-lg" disabled>Остановить запись</button>
+    <span class="status-line">
+      <span>Статус:</span>
+      <span id="recordingStatusBadge" class="badge idle" data-status="idle">{{ status_label_ru("idle") }}</span>
+    </span>
   </div>
 
   <p id="recordingError" class="error"></p>
 </section>
 
 <section class="card">
-  <h2>Последние встречи</h2>
+  <div class="section-head">
+    <h2>Последние встречи</h2>
+    <a class="btn" href="/meetings">Открыть архив</a>
+  </div>
   {% if meetings %}
-    <ul class="meeting-list">
+    <ul class="meeting-list rich-list">
       {% for meeting in meetings %}
         <li>
-          <a href="/meetings/{{ meeting.id }}">{{ meeting.title }}</a>
-          <span class="badge {{ meeting.status }}" data-status="{{ meeting.status }}">{{ status_label_ru(meeting.status) }}</span>
-          <span class="muted">{{ meeting.created_at }}</span>
+          <div>
+            <a class="meeting-title" href="/meetings/{{ meeting.id }}">{{ meeting.title }}</a>
+            <div class="muted">{{ meeting.created_at }}</div>
+          </div>
+          <div class="meeting-right">
+            <span class="badge {{ meeting.status }}" data-status="{{ meeting.status }}">{{ status_label_ru(meeting.status) }}</span>
+            <a class="btn" href="/meetings/{{ meeting.id }}">Открыть</a>
+          </div>
         </li>
       {% endfor %}
     </ul>
