@@ -115,6 +115,10 @@ Pages:
 7. App uploads audio and starts local processing.
 8. Open meeting page and wait for status `ready`.
 
+Hotkeys on `/`:
+- `Space` — start/pause/resume recording
+- `Enter` — finish and process recording
+
 ## 10. Search text
 - Global search: `/search`
 - Meeting-local search: `/meetings/{id}?q=your+phrase`

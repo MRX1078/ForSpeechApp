@@ -21,6 +21,15 @@
     return `${String(min).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
   }
 
+  function isEditableTarget(target) {
+    if (!target) return false;
+    const tagName = String(target.tagName || "").toLowerCase();
+    if (tagName === "input" || tagName === "textarea" || tagName === "select") {
+      return true;
+    }
+    return Boolean(target.isContentEditable);
+  }
+
   const primaryBtn = document.getElementById("recordingPrimaryBtn");
   const finishBtn = document.getElementById("finishRecordingBtn");
   const resetBtn = document.getElementById("resetRecordingBtn");
@@ -30,6 +39,7 @@
   const recordingTimerNode = document.getElementById("recordingTimer");
   const segmentsListNode = document.getElementById("recordingSegmentsList");
   const segmentCountNode = document.getElementById("segmentCountLabel");
+  const waveCanvas = document.getElementById("recordingWaveCanvas");
 
   let mediaRecorder = null;
   let mediaStream = null;
@@ -42,6 +52,16 @@
   let segments = [];
   let activeSegmentStartSec = null;
   let currentRecordingFilename = "meeting.webm";
+
+  let audioContext = null;
+  let sourceNode = null;
+  let analyserNode = null;
+  let analyserData = null;
+  let waveCtx = null;
+  let waveFrameId = null;
+  let waveWidth = 0;
+  let waveHeight = 0;
+  let waveformHistory = [];
 
   function setStatus(value) {
     if (!statusBadge) return;
@@ -64,6 +84,234 @@
 
   function currentElapsedSec() {
     return currentElapsedMs() / 1000;
+  }
+
+  function setupWaveCanvas() {
+    if (!waveCanvas || waveCtx) return;
+    waveCtx = waveCanvas.getContext("2d");
+    resizeWaveCanvas();
+    window.addEventListener("resize", resizeWaveCanvas);
+    drawWave();
+  }
+
+  function resizeWaveCanvas() {
+    if (!waveCanvas || !waveCtx) return;
+    const dpr = window.devicePixelRatio || 1;
+    const rect = waveCanvas.getBoundingClientRect();
+    waveWidth = Math.max(320, Math.floor(rect.width || 320));
+    waveHeight = Math.max(120, Math.floor(rect.height || 150));
+    waveCanvas.width = Math.floor(waveWidth * dpr);
+    waveCanvas.height = Math.floor(waveHeight * dpr);
+    waveCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    drawWave();
+  }
+
+  function drawWaveBackground() {
+    if (!waveCtx) return;
+    const gradient = waveCtx.createLinearGradient(0, 0, 0, waveHeight);
+    gradient.addColorStop(0, "rgba(15, 23, 42, 0.98)");
+    gradient.addColorStop(1, "rgba(10, 23, 46, 0.95)");
+    waveCtx.fillStyle = gradient;
+    waveCtx.fillRect(0, 0, waveWidth, waveHeight);
+
+    waveCtx.strokeStyle = "rgba(148, 163, 184, 0.20)";
+    waveCtx.lineWidth = 1;
+    waveCtx.beginPath();
+    const rows = 4;
+    for (let i = 1; i <= rows; i += 1) {
+      const y = (waveHeight / (rows + 1)) * i;
+      waveCtx.moveTo(0, y);
+      waveCtx.lineTo(waveWidth, y);
+    }
+    waveCtx.stroke();
+  }
+
+  function drawWaveBars() {
+    if (!waveCtx) return;
+
+    const maxPoints = Math.max(90, Math.floor(waveWidth / 3));
+    if (waveformHistory.length > maxPoints) {
+      waveformHistory = waveformHistory.slice(waveformHistory.length - maxPoints);
+    }
+
+    if (waveformHistory.length === 0) {
+      waveCtx.strokeStyle = "rgba(148, 163, 184, 0.40)";
+      waveCtx.beginPath();
+      waveCtx.moveTo(0, waveHeight / 2);
+      waveCtx.lineTo(waveWidth, waveHeight / 2);
+      waveCtx.stroke();
+      return;
+    }
+
+    const barStep = waveWidth / maxPoints;
+    const barWidth = Math.max(1.2, barStep * 0.6);
+    waveCtx.fillStyle = recordingState === "paused"
+      ? "rgba(250, 204, 21, 0.88)"
+      : "rgba(52, 211, 153, 0.90)";
+
+    waveformHistory.forEach((amp, idx) => {
+      const x = idx * barStep;
+      const barHeight = Math.max(2, amp * (waveHeight * 0.86));
+      const y = (waveHeight - barHeight) / 2;
+      waveCtx.fillRect(x, y, barWidth, barHeight);
+    });
+  }
+
+  function drawWaveSegments() {
+    if (!waveCtx) return;
+    let duration = currentElapsedSec();
+    if (segments.length > 0) {
+      duration = Math.max(duration, segments[segments.length - 1].end);
+    }
+    if (activeSegmentStartSec !== null) {
+      duration = Math.max(duration, activeSegmentStartSec + 0.0001);
+    }
+    if (duration <= 0.0001) return;
+
+    const marks = [];
+    segments.forEach((segment) => {
+      marks.push(segment.start, segment.end);
+    });
+    if (activeSegmentStartSec !== null) {
+      marks.push(activeSegmentStartSec);
+    }
+
+    waveCtx.strokeStyle = "rgba(248, 250, 252, 0.22)";
+    waveCtx.lineWidth = 1;
+    marks.forEach((timeSec) => {
+      if (timeSec <= 0) return;
+      const x = Math.min(waveWidth - 1, (timeSec / duration) * waveWidth);
+      waveCtx.beginPath();
+      waveCtx.moveTo(x, 8);
+      waveCtx.lineTo(x, waveHeight - 8);
+      waveCtx.stroke();
+    });
+  }
+
+  function drawWavePlayhead() {
+    if (!waveCtx) return;
+    if (!["recording", "paused"].includes(recordingState)) return;
+    let duration = currentElapsedSec();
+    if (segments.length > 0) {
+      duration = Math.max(duration, segments[segments.length - 1].end);
+    }
+    if (duration <= 0.0001) return;
+
+    const x = Math.min(waveWidth - 1, (currentElapsedSec() / duration) * waveWidth);
+    waveCtx.strokeStyle = "rgba(251, 113, 133, 0.95)";
+    waveCtx.lineWidth = 2;
+    waveCtx.beginPath();
+    waveCtx.moveTo(x, 0);
+    waveCtx.lineTo(x, waveHeight);
+    waveCtx.stroke();
+  }
+
+  function drawWaveOverlayText() {
+    if (!waveCtx) return;
+    if (recordingState === "paused") {
+      waveCtx.fillStyle = "rgba(255, 255, 255, 0.9)";
+      waveCtx.font = "600 12px \"Avenir Next\", \"SF Pro Text\", sans-serif";
+      waveCtx.fillText("Пауза", 10, 18);
+    }
+  }
+
+  function drawWave() {
+    if (!waveCtx) return;
+    drawWaveBackground();
+    drawWaveBars();
+    drawWaveSegments();
+    drawWavePlayhead();
+    drawWaveOverlayText();
+  }
+
+  function stopWaveAnimation() {
+    if (waveFrameId !== null) {
+      cancelAnimationFrame(waveFrameId);
+      waveFrameId = null;
+    }
+  }
+
+  function sampleAmplitude() {
+    if (!analyserNode || !analyserData) return 0;
+    analyserNode.getByteTimeDomainData(analyserData);
+    let sum = 0;
+    for (let i = 0; i < analyserData.length; i += 1) {
+      const centered = (analyserData[i] - 128) / 128;
+      sum += centered * centered;
+    }
+    const rms = Math.sqrt(sum / analyserData.length);
+    return Math.min(1, rms * 3.2);
+  }
+
+  function startWaveAnimation() {
+    if (!waveCtx) return;
+    stopWaveAnimation();
+
+    const loop = () => {
+      if (recordingState !== "recording") {
+        drawWave();
+        waveFrameId = null;
+        return;
+      }
+
+      waveformHistory.push(sampleAmplitude());
+      drawWave();
+      waveFrameId = requestAnimationFrame(loop);
+    };
+
+    waveFrameId = requestAnimationFrame(loop);
+  }
+
+  async function setupWaveInput(stream) {
+    if (!waveCanvas) return;
+    setupWaveCanvas();
+
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) {
+      setError("В этом браузере недоступна визуализация аудио.");
+      return;
+    }
+
+    if (!audioContext || audioContext.state === "closed") {
+      audioContext = new AudioContextClass();
+    }
+
+    if (audioContext.state === "suspended") {
+      await audioContext.resume();
+    }
+
+    if (sourceNode) {
+      sourceNode.disconnect();
+      sourceNode = null;
+    }
+
+    sourceNode = audioContext.createMediaStreamSource(stream);
+    analyserNode = audioContext.createAnalyser();
+    analyserNode.fftSize = 1024;
+    analyserNode.smoothingTimeConstant = 0.83;
+    analyserData = new Uint8Array(analyserNode.fftSize);
+    sourceNode.connect(analyserNode);
+    startWaveAnimation();
+  }
+
+  async function teardownWaveInput() {
+    stopWaveAnimation();
+
+    if (sourceNode) {
+      sourceNode.disconnect();
+      sourceNode = null;
+    }
+    analyserNode = null;
+    analyserData = null;
+
+    if (audioContext) {
+      try {
+        await audioContext.close();
+      } catch (_) {
+        // ignore close errors
+      }
+      audioContext = null;
+    }
   }
 
   function renderSegmentList() {
@@ -96,6 +344,7 @@
     if (activeSegmentStartSec === null) {
       activeSegmentStartSec = currentElapsedSec();
       renderSegmentList();
+      drawWave();
     }
   }
 
@@ -110,6 +359,7 @@
     }
     activeSegmentStartSec = null;
     renderSegmentList();
+    drawWave();
   }
 
   function startRecordingTimer() {
@@ -120,6 +370,9 @@
     recordingTimerInterval = setInterval(() => {
       recordingTimerNode.textContent = formatTime(currentElapsedSec());
       renderSegmentList();
+      if (recordingState !== "recording") {
+        drawWave();
+      }
     }, 200);
   }
 
@@ -136,9 +389,10 @@
   function renderRecordingControls() {
     if (!primaryBtn || !finishBtn || !resetBtn) return;
 
-    primaryBtn.classList.remove("recording", "paused", "loading");
+    primaryBtn.classList.remove("recording", "paused", "loading", "idle");
     if (recordingState === "idle") {
       primaryBtn.textContent = "Начать запись";
+      primaryBtn.classList.add("idle");
       primaryBtn.disabled = false;
       finishBtn.disabled = true;
       resetBtn.disabled = true;
@@ -176,9 +430,11 @@
     activeSegmentStartSec = null;
     currentRecordingFilename = "meeting.webm";
     chunks = [];
+    waveformHistory = [];
     stopRecordingTimer(true);
     renderSegmentList();
     renderRecordingControls();
+    drawWave();
   }
 
   async function beginRecordingSession() {
@@ -190,11 +446,7 @@
 
     try {
       mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mimeCandidates = [
-        "audio/webm;codecs=opus",
-        "audio/webm",
-        "audio/mp4",
-      ];
+      const mimeCandidates = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"];
       const selectedMimeType = mimeCandidates.find((mime) => {
         if (!window.MediaRecorder || typeof MediaRecorder.isTypeSupported !== "function") {
           return false;
@@ -206,6 +458,7 @@
       currentRecordingFilename = selectedMimeType && selectedMimeType.includes("mp4")
         ? "meeting.m4a"
         : "meeting.webm";
+
       mediaRecorder = new MediaRecorder(mediaStream, options);
       chunks = [];
       elapsedMs = 0;
@@ -213,6 +466,7 @@
       segments = [];
       activeSegmentStartSec = null;
       discardCurrentRecording = false;
+      waveformHistory = [];
 
       mediaRecorder.ondataavailable = (event) => {
         if (event.data && event.data.size > 0) {
@@ -222,7 +476,7 @@
 
       mediaRecorder.onstop = async () => {
         if (discardCurrentRecording) {
-          cleanupStream();
+          await cleanupStream();
           resetSessionState();
           return;
         }
@@ -253,16 +507,18 @@
           setStatus("failed");
           setError(err.message || "Не удалось загрузить аудио");
         } finally {
-          cleanupStream();
+          await cleanupStream();
           resetSessionState();
         }
       };
 
       mediaRecorder.start(500);
+      await setupWaveInput(mediaStream);
       openActiveSegment();
       startRecordingTimer();
       recordingState = "recording";
       renderRecordingControls();
+      drawWave();
     } catch (err) {
       setError(err.message || "Не удалось получить доступ к микрофону");
     }
@@ -274,6 +530,7 @@
       setError("Пауза не поддерживается в этом браузере.");
       return;
     }
+
     mediaRecorder.pause();
     if (phaseStartedAtMs) {
       elapsedMs += Date.now() - phaseStartedAtMs;
@@ -281,7 +538,9 @@
     }
     closeActiveSegment();
     recordingState = "paused";
+    stopWaveAnimation();
     renderRecordingControls();
+    drawWave();
   }
 
   function resumeRecording() {
@@ -290,11 +549,13 @@
       setError("Продолжение записи не поддерживается в этом браузере.");
       return;
     }
+
     mediaRecorder.resume();
     phaseStartedAtMs = Date.now();
     openActiveSegment();
     recordingState = "recording";
     renderRecordingControls();
+    startWaveAnimation();
   }
 
   function finishRecording() {
@@ -307,6 +568,8 @@
     if (mediaRecorder.state === "recording" || mediaRecorder.state === "paused") {
       recordingState = "uploading";
       renderRecordingControls();
+      stopWaveAnimation();
+      drawWave();
       mediaRecorder.stop();
     }
   }
@@ -317,17 +580,19 @@
       return;
     }
     if (!confirm("Сбросить текущую запись?")) return;
+
     discardCurrentRecording = true;
     if (mediaRecorder.state === "recording") {
       elapsedMs += Date.now() - phaseStartedAtMs;
       phaseStartedAtMs = null;
       closeActiveSegment();
     }
+
     if (mediaRecorder.state === "recording" || mediaRecorder.state === "paused") {
+      stopWaveAnimation();
       mediaRecorder.stop();
     } else {
-      cleanupStream();
-      resetSessionState();
+      cleanupStream().finally(resetSessionState);
     }
   }
 
@@ -345,21 +610,49 @@
     }
   }
 
-  function cleanupStream() {
+  async function cleanupStream() {
     stopRecordingTimer(false);
+    stopWaveAnimation();
+
     if (mediaStream) {
       mediaStream.getTracks().forEach((track) => track.stop());
     }
     mediaStream = null;
     mediaRecorder = null;
+    await teardownWaveInput();
+  }
+
+  function handleRecorderHotkeys(event) {
+    if (!primaryBtn || !finishBtn || !resetBtn) return;
+    if (event.repeat) return;
+    if (isEditableTarget(event.target)) return;
+    if (recordingState === "uploading") return;
+
+    const code = event.code || "";
+    const key = event.key || "";
+
+    if (code === "Space" || key === " ") {
+      event.preventDefault();
+      handlePrimaryButton();
+      return;
+    }
+
+    if (key === "Enter") {
+      if (recordingState === "recording" || recordingState === "paused") {
+        event.preventDefault();
+        finishRecording();
+      }
+    }
   }
 
   if (primaryBtn && finishBtn && resetBtn) {
+    setupWaveCanvas();
     renderSegmentList();
     renderRecordingControls();
     primaryBtn.addEventListener("click", handlePrimaryButton);
     finishBtn.addEventListener("click", finishRecording);
     resetBtn.addEventListener("click", discardRecording);
+    document.addEventListener("keydown", handleRecorderHotkeys);
   }
 
   const meetingRoot = document.getElementById("meetingDetailRoot");

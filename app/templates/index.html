@@ -23,6 +23,14 @@
         <button id="finishRecordingBtn" class="btn btn-primary btn-lg" type="button" disabled>Завершить и обработать</button>
         <button id="resetRecordingBtn" class="btn" type="button" disabled>Сбросить</button>
       </div>
+
+      <div class="wave-panel">
+        <div class="wave-head">
+          <strong>Wave-таймлайн</strong>
+          <span class="muted">Space: старт/пауза/продолжить • Enter: завершить</span>
+        </div>
+        <canvas id="recordingWaveCanvas" class="wave-canvas" width="900" height="150"></canvas>
+      </div>
       <p id="recordingError" class="error"></p>
     </div>
 
