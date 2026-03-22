@@ -45,6 +45,13 @@ Option A (recommended): run helper script
 ./scripts/setup_whisper_cpp.sh
 ```
 
+Higher accuracy profile (recommended for Russian):
+```bash
+WHISPER_MODEL_NAME=medium ./scripts/setup_whisper_cpp.sh
+# or strongest quality (slower):
+# WHISPER_MODEL_NAME=large-v3 ./scripts/setup_whisper_cpp.sh
+```
+
 Option B (manual):
 ```bash
 mkdir -p models
@@ -56,7 +63,7 @@ cmake --build build --config Release -j
 ```
 
 ## 6. Download model
-If you used `./scripts/setup_whisper_cpp.sh`, model is already copied to `./models/ggml-base.bin`.
+If you used `./scripts/setup_whisper_cpp.sh`, model is already copied to `./models/ggml-<model>.bin`.
 
 Manual download:
 ```bash
@@ -65,12 +72,23 @@ cd models/whisper.cpp
 cp models/ggml-base.bin ../ggml-base.bin
 ```
 
+For higher quality:
+```bash
+cd models/whisper.cpp
+./models/download-ggml-model.sh medium
+cp models/ggml-medium.bin ../ggml-medium.bin
+```
+
 ## 7. Run the app
 ```bash
 source .venv/bin/activate
 export WHISPER_CPP_BIN="/Users/maksimshatokhin/Documents/New project/models/whisper.cpp/build/bin/whisper-cli"
-export WHISPER_MODEL_PATH="/Users/maksimshatokhin/Documents/New project/models/ggml-base.bin"
 export WHISPER_LANGUAGE="ru"
+export WHISPER_MODEL_PRIORITY="large-v3,large-v2,medium,small,base"
+export WHISPER_BEAM_SIZE="8"
+export WHISPER_BEST_OF="8"
+# optional: pin explicit model file
+# export WHISPER_MODEL_PATH="/Users/maksimshatokhin/Documents/New project/models/ggml-medium.bin"
 # optional: compressed archive bitrate in kbps (default 32)
 # export COMPRESSED_AUDIO_BITRATE_KBPS="24"
 uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload

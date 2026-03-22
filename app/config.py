@@ -29,11 +29,27 @@ class Settings:
                 self.models_dir / "whisper.cpp" / "build" / "bin" / "whisper-cli",
             )
         )
-        self.whisper_model_path = Path(
-            os.getenv("WHISPER_MODEL_PATH", self.models_dir / "ggml-base.bin")
+        whisper_model_path_raw = os.getenv("WHISPER_MODEL_PATH", "").strip()
+        self.whisper_model_path = Path(whisper_model_path_raw) if whisper_model_path_raw else None
+        model_priority_raw = os.getenv(
+            "WHISPER_MODEL_PRIORITY",
+            "large-v3,large-v2,medium,small,base",
         )
+        self.whisper_model_priority = [
+            item.strip() for item in model_priority_raw.split(",") if item.strip()
+        ]
         self.whisper_language = os.getenv("WHISPER_LANGUAGE", "ru")
         self.whisper_threads = int(os.getenv("WHISPER_THREADS", "4"))
+        self.whisper_beam_size = int(os.getenv("WHISPER_BEAM_SIZE", "7"))
+        self.whisper_best_of = int(os.getenv("WHISPER_BEST_OF", "7"))
+        self.whisper_temperature = float(os.getenv("WHISPER_TEMPERATURE", "0.0"))
+        self.whisper_no_speech_thold = float(os.getenv("WHISPER_NO_SPEECH_THOLD", "0.45"))
+        self.whisper_logprob_thold = float(os.getenv("WHISPER_LOGPROB_THOLD", "-0.8"))
+        self.whisper_entropy_thold = float(os.getenv("WHISPER_ENTROPY_THOLD", "2.4"))
+        self.whisper_prompt = os.getenv(
+            "WHISPER_PROMPT",
+            "Это русская речь с рабочей встречи. Сохраняй имена, цифры и технические термины максимально точно.",
+        )
         self.compressed_audio_bitrate_kbps = int(os.getenv("COMPRESSED_AUDIO_BITRATE_KBPS", "32"))
 
         self.vad_threshold = float(os.getenv("VAD_THRESHOLD", "0.5"))

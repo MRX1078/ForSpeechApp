@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 MODELS_DIR="$ROOT_DIR/models"
 WHISPER_DIR="$MODELS_DIR/whisper.cpp"
-MODEL_NAME="base"
+MODEL_NAME="${WHISPER_MODEL_NAME:-base}"
 MODEL_FILE="ggml-${MODEL_NAME}.bin"
 MODEL_PATH="$MODELS_DIR/$MODEL_FILE"
 MODEL_URL="https://huggingface.co/ggerganov/whisper.cpp/resolve/main/${MODEL_FILE}?download=true"
@@ -87,3 +87,4 @@ fi
 echo "whisper.cpp setup complete"
 echo "Binary: $WHISPER_DIR/build/bin/whisper-cli"
 echo "Model:  $MODEL_PATH"
+echo "Tip: set WHISPER_MODEL_NAME=medium or WHISPER_MODEL_NAME=large-v3 for higher accuracy."

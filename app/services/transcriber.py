@@ -35,12 +35,27 @@ class WhisperCppTranscriber(SpeechTranscriber):
         )
 
     def _resolve_model(self) -> Path:
-        model_path = self.settings.whisper_model_path
-        if not model_path.exists():
-            raise FileNotFoundError(
-                f"Whisper model not found: {model_path}. Set WHISPER_MODEL_PATH correctly."
-            )
-        return model_path
+        if self.settings.whisper_model_path is not None:
+            model_path = self.settings.whisper_model_path
+            if not model_path.exists():
+                raise FileNotFoundError(
+                    f"Whisper model not found: {model_path}. Set WHISPER_MODEL_PATH correctly."
+                )
+            return model_path
+
+        for model_name in self.settings.whisper_model_priority:
+            candidate = self.settings.models_dir / f"ggml-{model_name}.bin"
+            if candidate.exists():
+                return candidate
+
+        searched = ", ".join(
+            str(self.settings.models_dir / f"ggml-{model_name}.bin")
+            for model_name in self.settings.whisper_model_priority
+        )
+        raise FileNotFoundError(
+            "Whisper model not found. Place a model in models/ and set WHISPER_MODEL_PATH if needed. "
+            f"Searched: {searched}"
+        )
 
     def transcribe_segment(self, audio_path: Path) -> str:
         whisper_bin = self._resolve_binary()
@@ -65,6 +80,19 @@ class WhisperCppTranscriber(SpeechTranscriber):
 
             if self.settings.whisper_threads > 0:
                 cmd.extend(["-t", str(self.settings.whisper_threads)])
+
+            if self.settings.whisper_beam_size > 1:
+                cmd.extend(["-bs", str(self.settings.whisper_beam_size)])
+            if self.settings.whisper_best_of > 1:
+                cmd.extend(["-bo", str(self.settings.whisper_best_of)])
+
+            cmd.extend(["-tp", f"{self.settings.whisper_temperature:.2f}"])
+            cmd.extend(["-nth", f"{self.settings.whisper_no_speech_thold:.2f}"])
+            cmd.extend(["-lpt", f"{self.settings.whisper_logprob_thold:.2f}"])
+            cmd.extend(["-et", f"{self.settings.whisper_entropy_thold:.2f}"])
+
+            if self.settings.whisper_prompt.strip():
+                cmd.extend(["--prompt", self.settings.whisper_prompt.strip()])
 
             result = subprocess.run(cmd, capture_output=True, text=True, check=False)
             if result.returncode != 0:

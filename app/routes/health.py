@@ -17,5 +17,5 @@ def health(settings: Settings = Depends(get_settings)) -> dict:
         "ffmpeg": bool(shutil.which("ffmpeg")),
         "ffprobe": bool(shutil.which("ffprobe")),
         "whisper_bin": str(settings.whisper_cpp_bin),
-        "whisper_model": str(settings.whisper_model_path),
+        "whisper_model": str(settings.whisper_model_path) if settings.whisper_model_path else "auto",
     }
