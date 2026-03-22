@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+import wave
+
+import numpy as np
 
 from app.config import Settings
 
@@ -16,7 +19,6 @@ class SileroVADService:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
         self._model = None
-        self._read_audio = None
         self._get_speech_timestamps = None
 
     def _get_model(self):
@@ -25,7 +27,6 @@ class SileroVADService:
                 from silero_vad import (
                     get_speech_timestamps as _get_speech_timestamps,
                     load_silero_vad,
-                    read_audio as _read_audio,
                 )
             except ImportError as exc:
                 raise RuntimeError(
@@ -33,15 +34,47 @@ class SileroVADService:
                 ) from exc
 
             self._model = load_silero_vad()
-            self._read_audio = _read_audio
             self._get_speech_timestamps = _get_speech_timestamps
         return self._model
 
+    def _read_normalized_wav(self, audio_path: Path):
+        """
+        Read normalized PCM WAV directly to avoid torchaudio backend issues.
+        Pipeline guarantees mono/16kHz/pcm_s16le before VAD.
+        """
+        try:
+            import torch
+        except ImportError as exc:
+            raise RuntimeError("torch is required for VAD but is not installed.") from exc
+
+        try:
+            with wave.open(str(audio_path), "rb") as wav_file:
+                channels = wav_file.getnchannels()
+                sample_width = wav_file.getsampwidth()
+                sample_rate = wav_file.getframerate()
+                frame_count = wav_file.getnframes()
+                raw = wav_file.readframes(frame_count)
+        except wave.Error as exc:
+            raise RuntimeError(f"Invalid WAV for VAD: {audio_path}") from exc
+
+        if channels != 1:
+            raise RuntimeError(f"Expected mono WAV, got {channels} channels: {audio_path}")
+        if sample_rate != 16000:
+            raise RuntimeError(f"Expected 16kHz WAV, got {sample_rate} Hz: {audio_path}")
+        if sample_width != 2:
+            raise RuntimeError(f"Expected 16-bit WAV, got {sample_width * 8}-bit: {audio_path}")
+
+        audio_np = np.frombuffer(raw, dtype=np.int16).astype(np.float32)
+        if audio_np.size == 0:
+            return torch.zeros(1, dtype=torch.float32)
+
+        audio_np /= 32768.0
+        return torch.from_numpy(audio_np)
+
     def detect_segments(self, audio_path: Path, duration_sec: float) -> list[SpeechWindow]:
         model = self._get_model()
-        assert self._read_audio is not None
         assert self._get_speech_timestamps is not None
-        audio = self._read_audio(str(audio_path), sampling_rate=16000)
+        audio = self._read_normalized_wav(audio_path)
 
         timestamps = self._get_speech_timestamps(
             audio,
