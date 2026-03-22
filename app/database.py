@@ -61,9 +61,33 @@ class Database:
                     FOREIGN KEY(meeting_id) REFERENCES meetings(id) ON DELETE CASCADE
                 );
 
+                CREATE TABLE IF NOT EXISTS meeting_agreements (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    meeting_id TEXT NOT NULL,
+                    text TEXT NOT NULL,
+                    owner TEXT,
+                    status TEXT NOT NULL DEFAULT 'open',
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    FOREIGN KEY(meeting_id) REFERENCES meetings(id) ON DELETE CASCADE
+                );
+
+                CREATE TABLE IF NOT EXISTS workspace_items (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    kind TEXT NOT NULL,
+                    title TEXT NOT NULL,
+                    content TEXT NOT NULL DEFAULT '',
+                    status TEXT NOT NULL DEFAULT 'open',
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+
                 CREATE INDEX IF NOT EXISTS idx_meetings_created_at ON meetings(created_at DESC);
                 CREATE INDEX IF NOT EXISTS idx_meetings_status ON meetings(status);
                 CREATE INDEX IF NOT EXISTS idx_segments_meeting_id ON transcript_segments(meeting_id);
+                CREATE INDEX IF NOT EXISTS idx_agreements_meeting_id ON meeting_agreements(meeting_id);
+                CREATE INDEX IF NOT EXISTS idx_agreements_updated_at ON meeting_agreements(updated_at DESC);
+                CREATE INDEX IF NOT EXISTS idx_workspace_items_updated_at ON workspace_items(updated_at DESC);
 
                 CREATE VIRTUAL TABLE IF NOT EXISTS transcript_fts USING fts5(
                     meeting_id UNINDEXED,
@@ -76,6 +100,11 @@ class Database:
             )
             self._ensure_column_exists(conn, "meetings", "compressed_audio_path", "TEXT")
             self._ensure_column_exists(conn, "transcript_segments", "speaker_label", "TEXT")
+            self._ensure_column_exists(conn, "meeting_agreements", "owner", "TEXT")
+            self._ensure_column_exists(conn, "meeting_agreements", "status", "TEXT")
+            self._ensure_column_exists(conn, "meeting_agreements", "updated_at", "TEXT")
+            self._ensure_column_exists(conn, "workspace_items", "content", "TEXT")
+            self._ensure_column_exists(conn, "workspace_items", "status", "TEXT")
 
     def _ensure_column_exists(
         self,
@@ -216,6 +245,177 @@ class Database:
                 (speaker_label, segment_id, meeting_id),
             )
             return True
+
+    def get_meeting_agreements(self, meeting_id: str) -> list[dict]:
+        with self.connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT id, meeting_id, text, owner, status, created_at, updated_at
+                FROM meeting_agreements
+                WHERE meeting_id = ?
+                ORDER BY created_at ASC
+                """,
+                (meeting_id,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def get_meeting_agreement(self, meeting_id: str, agreement_id: int) -> Optional[dict]:
+        with self.connect() as conn:
+            row = conn.execute(
+                """
+                SELECT id, meeting_id, text, owner, status, created_at, updated_at
+                FROM meeting_agreements
+                WHERE id = ? AND meeting_id = ?
+                """,
+                (agreement_id, meeting_id),
+            ).fetchone()
+        return self._row_to_dict(row)
+
+    def create_meeting_agreement(
+        self,
+        meeting_id: str,
+        text: str,
+        owner: Optional[str],
+        status: str = "open",
+    ) -> dict:
+        now = now_utc_iso()
+        with self.connect() as conn:
+            cur = conn.execute(
+                """
+                INSERT INTO meeting_agreements(
+                    meeting_id, text, owner, status, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (meeting_id, text, owner, status, now, now),
+            )
+            agreement_id = cur.lastrowid
+
+        row = self.get_meeting_agreement(meeting_id, int(agreement_id))
+        if row is None:
+            raise RuntimeError("Failed to create meeting agreement")
+        return row
+
+    def update_meeting_agreement(
+        self,
+        meeting_id: str,
+        agreement_id: int,
+        text: str,
+        owner: Optional[str],
+        status: str,
+    ) -> bool:
+        with self.connect() as conn:
+            cur = conn.execute(
+                """
+                UPDATE meeting_agreements
+                SET text = ?, owner = ?, status = ?, updated_at = ?
+                WHERE id = ? AND meeting_id = ?
+                """,
+                (text, owner, status, now_utc_iso(), agreement_id, meeting_id),
+            )
+            return cur.rowcount > 0
+
+    def delete_meeting_agreement(self, meeting_id: str, agreement_id: int) -> bool:
+        with self.connect() as conn:
+            cur = conn.execute(
+                "DELETE FROM meeting_agreements WHERE id = ? AND meeting_id = ?",
+                (agreement_id, meeting_id),
+            )
+            return cur.rowcount > 0
+
+    def list_key_agreements(self, limit: int = 300) -> list[dict]:
+        with self.connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT
+                    a.id,
+                    a.meeting_id,
+                    m.title AS meeting_title,
+                    m.created_at AS meeting_created_at,
+                    a.text,
+                    a.owner,
+                    a.status,
+                    a.created_at,
+                    a.updated_at
+                FROM meeting_agreements AS a
+                JOIN meetings AS m ON m.id = a.meeting_id
+                ORDER BY a.updated_at DESC
+                LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def list_workspace_items(self, limit: int = 400) -> list[dict]:
+        with self.connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT id, kind, title, content, status, created_at, updated_at
+                FROM workspace_items
+                ORDER BY updated_at DESC
+                LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def get_workspace_item(self, item_id: int) -> Optional[dict]:
+        with self.connect() as conn:
+            row = conn.execute(
+                """
+                SELECT id, kind, title, content, status, created_at, updated_at
+                FROM workspace_items
+                WHERE id = ?
+                """,
+                (item_id,),
+            ).fetchone()
+        return self._row_to_dict(row)
+
+    def create_workspace_item(
+        self,
+        kind: str,
+        title: str,
+        content: str,
+        status: str = "open",
+    ) -> dict:
+        now = now_utc_iso()
+        with self.connect() as conn:
+            cur = conn.execute(
+                """
+                INSERT INTO workspace_items(kind, title, content, status, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (kind, title, content, status, now, now),
+            )
+            item_id = cur.lastrowid
+
+        row = self.get_workspace_item(int(item_id))
+        if row is None:
+            raise RuntimeError("Failed to create workspace item")
+        return row
+
+    def update_workspace_item(
+        self,
+        item_id: int,
+        kind: str,
+        title: str,
+        content: str,
+        status: str,
+    ) -> bool:
+        with self.connect() as conn:
+            cur = conn.execute(
+                """
+                UPDATE workspace_items
+                SET kind = ?, title = ?, content = ?, status = ?, updated_at = ?
+                WHERE id = ?
+                """,
+                (kind, title, content, status, now_utc_iso(), item_id),
+            )
+            return cur.rowcount > 0
+
+    def delete_workspace_item(self, item_id: int) -> bool:
+        with self.connect() as conn:
+            cur = conn.execute("DELETE FROM workspace_items WHERE id = ?", (item_id,))
+            return cur.rowcount > 0
 
     def reset_for_reprocess(self, meeting_id: str) -> None:
         with self.connect() as conn:

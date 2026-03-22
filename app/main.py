@@ -7,10 +7,11 @@ from fastapi.templating import Jinja2Templates
 
 from app.database import Database
 from app.deps import get_db, get_search_service, get_settings
-from app.i18n import status_label_ru
+from app.i18n import item_status_label_ru, status_label_ru
 from app.routes.exports import router as exports_router
 from app.routes.health import router as health_router
 from app.routes.meetings import router as meetings_router
+from app.routes.planning import router as planning_router
 from app.routes.recordings import router as recordings_router
 from app.routes.search import router as search_router
 from app.services.search import SearchService
@@ -20,6 +21,7 @@ def create_app() -> FastAPI:
     settings = get_settings()
     templates = Jinja2Templates(directory=str(settings.templates_dir))
     templates.env.globals["status_label_ru"] = status_label_ru
+    templates.env.globals["item_status_label_ru"] = item_status_label_ru
 
     app = FastAPI(title="Локальный диктофон встреч", version="0.1.0")
     app.mount("/static", StaticFiles(directory=str(settings.static_dir)), name="static")
@@ -35,6 +37,7 @@ def create_app() -> FastAPI:
     app.include_router(meetings_router)
     app.include_router(search_router)
     app.include_router(exports_router)
+    app.include_router(planning_router)
 
     @app.get("/", response_class=HTMLResponse)
     def index(request: Request, db: Database = Depends(get_db)):
@@ -74,6 +77,7 @@ def create_app() -> FastAPI:
                     "request": request,
                     "meeting": None,
                     "segments": [],
+                    "agreements": [],
                     "meeting_search_results": [],
                     "q": q,
                 },
@@ -81,6 +85,7 @@ def create_app() -> FastAPI:
             )
 
         segments = db.get_segments(meeting_id)
+        agreements = db.get_meeting_agreements(meeting_id)
         meeting_search_results = []
         if q.strip():
             meeting_search_results = search_service.search_in_meeting(meeting_id, q, limit=200)
@@ -91,6 +96,7 @@ def create_app() -> FastAPI:
                 "request": request,
                 "meeting": meeting,
                 "segments": segments,
+                "agreements": agreements,
                 "meeting_search_results": meeting_search_results,
                 "q": q,
             },
@@ -109,6 +115,19 @@ def create_app() -> FastAPI:
                 "request": request,
                 "q": q,
                 "results": results,
+            },
+        )
+
+    @app.get("/planning", response_class=HTMLResponse)
+    def planning_page(request: Request, db: Database = Depends(get_db)):
+        agreements = db.list_key_agreements(limit=500)
+        work_items = db.list_workspace_items(limit=1000)
+        return templates.TemplateResponse(
+            "planning.html",
+            {
+                "request": request,
+                "agreements": agreements,
+                "work_items": work_items,
             },
         )
 

@@ -10,8 +10,17 @@
     failed: "ошибка",
   };
 
+  const ITEM_STATUS_LABELS_RU = {
+    open: "в работе",
+    done: "выполнено",
+  };
+
   function statusLabel(value) {
     return STATUS_LABELS_RU[value] || value;
+  }
+
+  function itemStatusLabel(value) {
+    return ITEM_STATUS_LABELS_RU[value] || value;
   }
 
   function formatTime(seconds) {
@@ -28,6 +37,15 @@
       return true;
     }
     return Boolean(target.isContentEditable);
+  }
+
+  function escapeHtml(value) {
+    return String(value || "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
   }
 
   const primaryBtn = document.getElementById("recordingPrimaryBtn");
@@ -210,7 +228,7 @@
     if (!waveCtx) return;
     if (recordingState === "paused") {
       waveCtx.fillStyle = "rgba(255, 255, 255, 0.9)";
-      waveCtx.font = "600 12px \"Avenir Next\", \"SF Pro Text\", sans-serif";
+      waveCtx.font = '600 12px "Avenir Next", "SF Pro Text", sans-serif';
       waveCtx.fillText("Пауза", 10, 18);
     }
   }
@@ -655,6 +673,169 @@
     document.addEventListener("keydown", handleRecorderHotkeys);
   }
 
+  function agreementItemHtml(agreement) {
+    const selectedOpen = agreement.status === "open" ? "selected" : "";
+    const selectedDone = agreement.status === "done" ? "selected" : "";
+    return `
+      <li class="work-item" data-agreement-id="${agreement.id}">
+        <div class="work-item-head">
+          <span class="badge item-status ${escapeHtml(agreement.status)}">${escapeHtml(itemStatusLabel(agreement.status))}</span>
+          <select class="input agreement-status-select inline-input">
+            <option value="open" ${selectedOpen}>в работе</option>
+            <option value="done" ${selectedDone}>выполнено</option>
+          </select>
+          <button class="btn agreement-save-btn" type="button">Сохранить</button>
+          <button class="btn btn-danger agreement-delete-btn" type="button">Удалить</button>
+        </div>
+        <input class="input agreement-text-input" type="text" maxlength="2000" value="${escapeHtml(agreement.text)}" />
+        <input class="input agreement-owner-input inline-input" type="text" maxlength="128" placeholder="Ответственный" value="${escapeHtml(agreement.owner || "")}" />
+        <div class="muted">Обновлено: ${escapeHtml(agreement.updated_at || "")}</div>
+      </li>
+    `;
+  }
+
+  function bindAgreementItemNode(itemNode, meetingId) {
+    const saveBtn = itemNode.querySelector(".agreement-save-btn");
+    const deleteBtn = itemNode.querySelector(".agreement-delete-btn");
+    const statusSelect = itemNode.querySelector(".agreement-status-select");
+    const textInput = itemNode.querySelector(".agreement-text-input");
+    const ownerInput = itemNode.querySelector(".agreement-owner-input");
+    const badgeNode = itemNode.querySelector(".item-status");
+    const agreementId = Number(itemNode.dataset.agreementId || 0);
+    if (!agreementId) return;
+
+    if (saveBtn && statusSelect && textInput && ownerInput) {
+      saveBtn.addEventListener("click", async () => {
+        const payload = {
+          text: textInput.value.trim(),
+          owner: ownerInput.value.trim() || null,
+          status: statusSelect.value,
+        };
+        if (!payload.text) {
+          alert("Текст договоренности не может быть пустым");
+          return;
+        }
+
+        const response = await fetch(`/api/meetings/${meetingId}/agreements/${agreementId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!response.ok) {
+          alert("Не удалось обновить договоренность");
+          return;
+        }
+        const updated = await response.json();
+        if (badgeNode) {
+          badgeNode.textContent = itemStatusLabel(updated.status);
+          badgeNode.className = `badge item-status ${updated.status}`;
+        }
+      });
+    }
+
+    if (deleteBtn) {
+      deleteBtn.addEventListener("click", async () => {
+        if (!confirm("Удалить договоренность?")) return;
+        const response = await fetch(`/api/meetings/${meetingId}/agreements/${agreementId}`, {
+          method: "DELETE",
+        });
+        if (!response.ok) {
+          alert("Не удалось удалить договоренность");
+          return;
+        }
+        itemNode.remove();
+        const listNode = document.getElementById("meetingAgreementsList");
+        const emptyStateNode = document.getElementById("agreementEmptyState");
+        if (listNode && listNode.children.length === 0 && !emptyStateNode) {
+          const p = document.createElement("p");
+          p.id = "agreementEmptyState";
+          p.className = "muted";
+          p.textContent = "Пока нет договоренностей.";
+          listNode.insertAdjacentElement("beforebegin", p);
+        }
+      });
+    }
+  }
+
+  function workspaceItemHtml(item) {
+    const kindLabel = item.kind === "task" ? "дело" : "заметка";
+    const selectedOpen = item.status === "open" ? "selected" : "";
+    const selectedDone = item.status === "done" ? "selected" : "";
+    return `
+      <li class="work-item" data-item-id="${item.id}" data-kind="${escapeHtml(item.kind)}">
+        <div class="work-item-head">
+          <span class="badge kind ${escapeHtml(item.kind)}">${kindLabel}</span>
+          <select class="input workspace-status-select">
+            <option value="open" ${selectedOpen}>в работе</option>
+            <option value="done" ${selectedDone}>выполнено</option>
+          </select>
+          <button class="btn workspace-save-btn" type="button">Сохранить</button>
+          <button class="btn btn-danger workspace-delete-btn" type="button">Удалить</button>
+        </div>
+        <input class="input workspace-title-input" type="text" maxlength="255" value="${escapeHtml(item.title)}" />
+        <textarea class="input workspace-content-input">${escapeHtml(item.content || "")}</textarea>
+        <div class="muted">Обновлено: ${escapeHtml(item.updated_at || "")}</div>
+      </li>
+    `;
+  }
+
+  function bindWorkspaceItemNode(itemNode) {
+    const itemId = Number(itemNode.dataset.itemId || 0);
+    if (!itemId) return;
+
+    const saveBtn = itemNode.querySelector(".workspace-save-btn");
+    const deleteBtn = itemNode.querySelector(".workspace-delete-btn");
+    const statusSelect = itemNode.querySelector(".workspace-status-select");
+    const titleInput = itemNode.querySelector(".workspace-title-input");
+    const contentInput = itemNode.querySelector(".workspace-content-input");
+
+    if (saveBtn && statusSelect && titleInput && contentInput) {
+      saveBtn.addEventListener("click", async () => {
+        const payload = {
+          title: titleInput.value.trim(),
+          content: contentInput.value.trim(),
+          status: statusSelect.value,
+        };
+        if (!payload.title) {
+          alert("Заголовок не может быть пустым");
+          return;
+        }
+
+        const response = await fetch(`/api/planning/work-items/${itemId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!response.ok) {
+          alert("Не удалось обновить запись");
+        }
+      });
+    }
+
+    if (deleteBtn) {
+      deleteBtn.addEventListener("click", async () => {
+        if (!confirm("Удалить запись?")) return;
+        const response = await fetch(`/api/planning/work-items/${itemId}`, {
+          method: "DELETE",
+        });
+        if (!response.ok) {
+          alert("Не удалось удалить запись");
+          return;
+        }
+        itemNode.remove();
+        const listNode = document.getElementById("workspaceItemsList");
+        const emptyStateNode = document.getElementById("workspaceItemsEmpty");
+        if (listNode && listNode.children.length === 0 && !emptyStateNode) {
+          const p = document.createElement("p");
+          p.id = "workspaceItemsEmpty";
+          p.className = "muted";
+          p.textContent = "Пока нет дел и заметок.";
+          listNode.insertAdjacentElement("beforebegin", p);
+        }
+      });
+    }
+  }
+
   const meetingRoot = document.getElementById("meetingDetailRoot");
   if (meetingRoot) {
     const meetingId = meetingRoot.dataset.meetingId;
@@ -753,12 +934,118 @@
       });
     });
 
-    const statusBadgeNode = meetingRoot.querySelector(".badge");
+    const agreementsRoot = document.getElementById("meetingAgreementsRoot");
+    if (agreementsRoot) {
+      const listNode = document.getElementById("meetingAgreementsList");
+      const createForm = document.getElementById("meetingAgreementCreateForm");
+      const textNode = document.getElementById("agreementText");
+      const ownerNode = document.getElementById("agreementOwner");
+      const statusNode = document.getElementById("agreementStatus");
+      const createErrorNode = document.getElementById("agreementCreateError");
+
+      if (listNode) {
+        listNode.querySelectorAll(".work-item").forEach((node) => bindAgreementItemNode(node, meetingId));
+      }
+
+      if (createForm && textNode && ownerNode && statusNode) {
+        createForm.addEventListener("submit", async (event) => {
+          event.preventDefault();
+          if (createErrorNode) createErrorNode.textContent = "";
+          const payload = {
+            text: textNode.value.trim(),
+            owner: ownerNode.value.trim() || null,
+            status: statusNode.value,
+          };
+          if (!payload.text) {
+            if (createErrorNode) createErrorNode.textContent = "Введите текст договоренности";
+            return;
+          }
+
+          const response = await fetch(`/api/meetings/${meetingId}/agreements`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          if (!response.ok) {
+            if (createErrorNode) createErrorNode.textContent = "Не удалось добавить договоренность";
+            return;
+          }
+          const agreement = await response.json();
+          if (listNode) {
+            const emptyStateNode = document.getElementById("agreementEmptyState");
+            if (emptyStateNode) emptyStateNode.remove();
+            listNode.insertAdjacentHTML("afterbegin", agreementItemHtml(agreement));
+            const newNode = listNode.firstElementChild;
+            if (newNode) bindAgreementItemNode(newNode, meetingId);
+          }
+          textNode.value = "";
+          ownerNode.value = "";
+          statusNode.value = "open";
+        });
+      }
+    }
+
+    const statusBadgeNode = meetingRoot.querySelector(".section-head > .badge");
     if (statusBadgeNode) {
       const statusText = (statusBadgeNode.dataset.status || statusBadgeNode.textContent || "").trim();
       if (statusText === "uploaded" || statusText === "preprocessing" || statusText === "transcribing") {
         setTimeout(() => window.location.reload(), 4000);
       }
+    }
+  }
+
+  const planningRoot = document.getElementById("planningRoot");
+  if (planningRoot) {
+    const listNode = document.getElementById("workspaceItemsList");
+    const createForm = document.getElementById("workspaceItemCreateForm");
+    const kindNode = document.getElementById("workspaceKind");
+    const titleNode = document.getElementById("workspaceTitle");
+    const contentNode = document.getElementById("workspaceContent");
+    const createErrorNode = document.getElementById("workspaceCreateError");
+
+    if (listNode) {
+      listNode.querySelectorAll(".work-item").forEach((node) => bindWorkspaceItemNode(node));
+    }
+
+    if (createForm && kindNode && titleNode && contentNode) {
+      createForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        if (createErrorNode) createErrorNode.textContent = "";
+
+        const payload = {
+          kind: kindNode.value,
+          title: titleNode.value.trim(),
+          content: contentNode.value.trim(),
+          status: "open",
+        };
+        if (!payload.title) {
+          if (createErrorNode) createErrorNode.textContent = "Введите заголовок";
+          return;
+        }
+
+        const response = await fetch("/api/planning/work-items", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!response.ok) {
+          if (createErrorNode) createErrorNode.textContent = "Не удалось добавить запись";
+          return;
+        }
+
+        const item = await response.json();
+        if (listNode) {
+          const emptyStateNode = document.getElementById("workspaceItemsEmpty");
+          if (emptyStateNode) emptyStateNode.remove();
+          listNode.insertAdjacentHTML("afterbegin", workspaceItemHtml(item));
+          const newNode = listNode.firstElementChild;
+          if (newNode) bindWorkspaceItemNode(newNode);
+        }
+
+        kindNode.value = "task";
+        titleNode.value = "";
+        contentNode.value = "";
+      });
     }
   }
 })();

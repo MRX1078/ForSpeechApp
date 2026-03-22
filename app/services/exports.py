@@ -18,6 +18,7 @@ class ExportService:
             raise ValueError("Встреча не найдена")
 
         segments = self.db.get_segments(meeting_id)
+        agreements = self.db.get_meeting_agreements(meeting_id)
 
         lines: list[str] = []
         lines.append(f"Название: {meeting['title']}")
@@ -34,6 +35,16 @@ class ExportService:
             speaker = f"{seg['speaker_label']}: " if seg.get("speaker_label") else ""
             lines.append(f"[{seg['start_sec']:.2f} - {seg['end_sec']:.2f}] {speaker}{seg['text']}")
 
+        lines.append("")
+        lines.append("Договоренности:")
+        if agreements:
+            for agr in agreements:
+                owner = f" ({agr['owner']})" if agr.get("owner") else ""
+                status = "выполнено" if agr.get("status") == "done" else "в работе"
+                lines.append(f"- [{status}] {agr['text']}{owner}")
+        else:
+            lines.append("- Нет договоренностей")
+
         content = "\n".join(lines)
         out_path = self.storage.export_txt_path(meeting_id)
         out_path.write_text(content, encoding="utf-8")
@@ -45,6 +56,7 @@ class ExportService:
             raise ValueError("Встреча не найдена")
 
         segments = self.db.get_segments(meeting_id)
+        agreements = self.db.get_meeting_agreements(meeting_id)
         created_at = meeting.get("created_at")
         created_fmt = created_at
         try:
@@ -70,6 +82,17 @@ class ExportService:
         for seg in segments:
             speaker = f"**{seg['speaker_label']}**: " if seg.get("speaker_label") else ""
             lines.append(f"- `{seg['start_sec']:.2f}` - `{seg['end_sec']:.2f}`: {speaker}{seg['text']}")
+
+        lines.append("")
+        lines.append("## Договоренности")
+        lines.append("")
+        if agreements:
+            for agr in agreements:
+                owner = f" ({agr['owner']})" if agr.get("owner") else ""
+                status = "выполнено" if agr.get("status") == "done" else "в работе"
+                lines.append(f"- [{status}] {agr['text']}{owner}")
+        else:
+            lines.append("- Нет договоренностей")
 
         content = "\n".join(lines)
         out_path = self.storage.export_md_path(meeting_id)

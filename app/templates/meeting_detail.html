@@ -46,6 +46,50 @@
   </div>
 </section>
 
+<section class="card" id="meetingAgreementsRoot" data-meeting-id="{{ meeting.id }}">
+  <div class="section-head">
+    <h2>Договоренности с командой</h2>
+    <span class="muted">Ключевые решения и обязательства по встрече</span>
+  </div>
+
+  <form id="meetingAgreementCreateForm" class="meeting-agreement-form">
+    <div class="inline-form">
+      <input id="agreementText" class="input" type="text" placeholder="Например: Подготовить релиз-кандидат к пятнице" maxlength="2000" required />
+      <input id="agreementOwner" class="input inline-input" type="text" placeholder="Ответственный" maxlength="128" />
+      <select id="agreementStatus" class="input inline-input">
+        <option value="open">в работе</option>
+        <option value="done">выполнено</option>
+      </select>
+      <button class="btn btn-primary" type="submit">Добавить договоренность</button>
+    </div>
+    <p class="error" id="agreementCreateError"></p>
+  </form>
+
+  {% if agreements %}
+    <ul class="work-item-list" id="meetingAgreementsList">
+      {% for agreement in agreements %}
+        <li class="work-item" data-agreement-id="{{ agreement.id }}">
+          <div class="work-item-head">
+            <span class="badge item-status {{ agreement.status }}">{{ item_status_label_ru(agreement.status) }}</span>
+            <select class="input agreement-status-select inline-input">
+              <option value="open" {% if agreement.status == "open" %}selected{% endif %}>в работе</option>
+              <option value="done" {% if agreement.status == "done" %}selected{% endif %}>выполнено</option>
+            </select>
+            <button class="btn agreement-save-btn" type="button">Сохранить</button>
+            <button class="btn btn-danger agreement-delete-btn" type="button">Удалить</button>
+          </div>
+          <input class="input agreement-text-input" type="text" maxlength="2000" value="{{ agreement.text }}" />
+          <input class="input agreement-owner-input inline-input" type="text" maxlength="128" placeholder="Ответственный" value="{{ agreement.owner or '' }}" />
+          <div class="muted">Обновлено: {{ agreement.updated_at }}</div>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="muted" id="agreementEmptyState">Пока нет договоренностей.</p>
+    <ul class="work-item-list" id="meetingAgreementsList"></ul>
+  {% endif %}
+</section>
+
 {% if meeting.compressed_audio_path %}
 <section class="card">
   <h2>Плеер встречи</h2>

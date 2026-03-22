@@ -5,6 +5,9 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from app.database import Database
 from app.deps import get_db, get_storage_service, get_transcript_pipeline
 from app.schemas import (
+    MeetingAgreementCreate,
+    MeetingAgreementResponse,
+    MeetingAgreementUpdate,
     MeetingResponse,
     MeetingTranscriptResponse,
     MeetingUpdate,
@@ -120,3 +123,89 @@ def update_segment_speaker(
     if segment is None:
         raise HTTPException(status_code=404, detail="Segment not found")
     return segment
+
+
+@router.get("/{meeting_id}/agreements", response_model=list[MeetingAgreementResponse])
+def list_meeting_agreements(meeting_id: str, db: Database = Depends(get_db)) -> list[dict]:
+    if db.get_meeting(meeting_id) is None:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+    return db.get_meeting_agreements(meeting_id)
+
+
+@router.post("/{meeting_id}/agreements", response_model=MeetingAgreementResponse)
+def create_meeting_agreement(
+    meeting_id: str,
+    payload: MeetingAgreementCreate,
+    db: Database = Depends(get_db),
+) -> dict:
+    if db.get_meeting(meeting_id) is None:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+
+    text = payload.text.strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="Agreement text cannot be empty")
+
+    return db.create_meeting_agreement(
+        meeting_id=meeting_id,
+        text=text,
+        owner=(payload.owner or "").strip() or None,
+        status=payload.status,
+    )
+
+
+@router.patch("/{meeting_id}/agreements/{agreement_id}", response_model=MeetingAgreementResponse)
+def update_meeting_agreement(
+    meeting_id: str,
+    agreement_id: int,
+    payload: MeetingAgreementUpdate,
+    db: Database = Depends(get_db),
+) -> dict:
+    if db.get_meeting(meeting_id) is None:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+
+    current = db.get_meeting_agreement(meeting_id, agreement_id)
+    if current is None:
+        raise HTTPException(status_code=404, detail="Agreement not found")
+
+    text = current["text"]
+    owner = current["owner"]
+    status = current["status"]
+
+    if payload.text is not None:
+        text = payload.text.strip()
+        if not text:
+            raise HTTPException(status_code=400, detail="Agreement text cannot be empty")
+    if "owner" in payload.model_fields_set:
+        owner = (payload.owner or "").strip() or None
+    if payload.status is not None:
+        status = payload.status
+
+    updated = db.update_meeting_agreement(
+        meeting_id=meeting_id,
+        agreement_id=agreement_id,
+        text=text,
+        owner=owner,
+        status=status,
+    )
+    if not updated:
+        raise HTTPException(status_code=404, detail="Agreement not found")
+
+    row = db.get_meeting_agreement(meeting_id, agreement_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Agreement not found")
+    return row
+
+
+@router.delete("/{meeting_id}/agreements/{agreement_id}")
+def delete_meeting_agreement(
+    meeting_id: str,
+    agreement_id: int,
+    db: Database = Depends(get_db),
+) -> dict:
+    if db.get_meeting(meeting_id) is None:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+
+    deleted = db.delete_meeting_agreement(meeting_id, agreement_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Agreement not found")
+    return {"ok": True}

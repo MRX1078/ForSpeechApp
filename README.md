@@ -102,7 +102,8 @@ Open in browser:
 Pages:
 - `/` recording panel + latest meetings
 - `/meetings` all meetings
-- `/meetings/{id}` meeting detail, segments, export, rename/delete/reprocess
+- `/meetings/{id}` meeting detail, segments, agreements, export, rename/delete/reprocess
+- `/planning` key agreements and personal tasks/notes
 - `/search` global search by transcript text
 
 ## 9. Record first meeting
@@ -127,6 +128,7 @@ Search uses only SQLite FTS5 (`transcript_fts`).
 
 ## 11. Known MVP limitations
 - No automatic speaker diarization (speaker tags are manual).
+- Agreements/tasks/notes are managed manually (no automatic extraction from transcript yet).
 - Recognition quality depends on model size and microphone quality.
 - Long meetings process with noticeable delay.
 - VAD segmentation can miss or split speech incorrectly.
@@ -151,10 +153,19 @@ Implemented API:
 - `GET /api/meetings/{meeting_id}/transcript`
 - `PATCH /api/meetings/{meeting_id}`
 - `PATCH /api/meetings/{meeting_id}/segments/{segment_id}`
+- `GET /api/meetings/{meeting_id}/agreements`
+- `POST /api/meetings/{meeting_id}/agreements`
+- `PATCH /api/meetings/{meeting_id}/agreements/{agreement_id}`
+- `DELETE /api/meetings/{meeting_id}/agreements/{agreement_id}`
 - `DELETE /api/meetings/{meeting_id}`
 - `POST /api/meetings/{meeting_id}/reprocess`
 - `GET /api/search?q=...`
 - `GET /api/meetings/{meeting_id}/search?q=...`
+- `GET /api/planning/agreements`
+- `GET /api/planning/work-items`
+- `POST /api/planning/work-items`
+- `PATCH /api/planning/work-items/{item_id}`
+- `DELETE /api/planning/work-items/{item_id}`
 - `GET /api/meetings/{meeting_id}/export.txt`
 - `GET /api/meetings/{meeting_id}/export.md`
 - `GET /api/meetings/{meeting_id}/audio-compressed`
@@ -171,6 +182,7 @@ app/
   routes/
     health.py
     meetings.py
+    planning.py
     recordings.py
     search.py
     exports.py
@@ -188,6 +200,7 @@ app/
     index.html
     meetings.html
     meeting_detail.html
+    planning.html
     search.html
   static/
     app.css

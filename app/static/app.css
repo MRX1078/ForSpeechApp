@@ -456,6 +456,80 @@ h3 {
   align-items: center;
 }
 
+.planning-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 16px;
+}
+
+.planning-agreements-list li {
+  align-items: center;
+}
+
+.planning-agreement-title {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.workspace-create-form,
+.meeting-agreement-form {
+  margin-bottom: 14px;
+}
+
+.work-item-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.work-item {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.74);
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.work-item-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.workspace-status-select,
+.agreement-status-select {
+  width: auto;
+  min-width: 130px;
+}
+
+.item-status.open {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.item-status.done {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.badge.kind.task {
+  background: #e0f2fe;
+  color: #0c4a6e;
+}
+
+.badge.kind.note {
+  background: #ede9fe;
+  color: #5b21b6;
+}
+
 .table {
   width: 100%;
   border-collapse: collapse;
@@ -514,6 +588,10 @@ mark {
 
 @media (max-width: 860px) {
   .studio-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .planning-grid {
     grid-template-columns: 1fr;
   }
 

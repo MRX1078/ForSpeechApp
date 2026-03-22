@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}Планирование{% endblock %}
+{% block content %}
+<section class="card">
+  <div class="section-head">
+    <h1>Планирование работы</h1>
+    <a class="btn" href="/meetings">Открыть встречи</a>
+  </div>
+  <p class="muted">Здесь собраны ключевые договоренности из встреч и личный список задач/заметок.</p>
+</section>
+
+<section class="planning-grid" id="planningRoot">
+  <section class="card">
+    <div class="section-head">
+      <h2>Ключевые договоренности</h2>
+      <span class="muted">Всего: {{ agreements|length }}</span>
+    </div>
+
+    {% if agreements %}
+      <ul class="meeting-list rich-list planning-agreements-list" id="keyAgreementsList">
+        {% for agreement in agreements %}
+          <li>
+            <div>
+              <div class="planning-agreement-title">
+                <a class="meeting-title" href="/meetings/{{ agreement.meeting_id }}">{{ agreement.meeting_title }}</a>
+                <span class="muted">{{ agreement.meeting_created_at }}</span>
+              </div>
+              <div>{{ agreement.text }}</div>
+              {% if agreement.owner %}
+                <div class="muted">Ответственный: {{ agreement.owner }}</div>
+              {% endif %}
+            </div>
+            <span class="badge item-status {{ agreement.status }}">{{ item_status_label_ru(agreement.status) }}</span>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="muted">Пока нет договоренностей. Добавьте их в карточке встречи.</p>
+    {% endif %}
+  </section>
+
+  <section class="card">
+    <div class="section-head">
+      <h2>Дела и заметки</h2>
+      <span class="muted">Локальный список</span>
+    </div>
+
+    <form id="workspaceItemCreateForm" class="workspace-create-form">
+      <div class="inline-form">
+        <select id="workspaceKind" class="input inline-input">
+          <option value="task">Дело</option>
+          <option value="note">Заметка</option>
+        </select>
+        <input id="workspaceTitle" class="input" type="text" placeholder="Короткий заголовок" maxlength="255" required />
+      </div>
+      <textarea id="workspaceContent" class="input" placeholder="Подробности (необязательно)"></textarea>
+      <button class="btn btn-primary" type="submit">Добавить</button>
+      <p class="error" id="workspaceCreateError"></p>
+    </form>
+
+    {% if work_items %}
+      <ul class="work-item-list" id="workspaceItemsList">
+        {% for item in work_items %}
+          <li class="work-item" data-item-id="{{ item.id }}" data-kind="{{ item.kind }}">
+            <div class="work-item-head">
+              <span class="badge kind {{ item.kind }}">{{ "дело" if item.kind == "task" else "заметка" }}</span>
+              <select class="input workspace-status-select">
+                <option value="open" {% if item.status == "open" %}selected{% endif %}>{{ item_status_label_ru("open") }}</option>
+                <option value="done" {% if item.status == "done" %}selected{% endif %}>{{ item_status_label_ru("done") }}</option>
+              </select>
+              <button class="btn workspace-save-btn" type="button">Сохранить</button>
+              <button class="btn btn-danger workspace-delete-btn" type="button">Удалить</button>
+            </div>
+            <input class="input workspace-title-input" type="text" maxlength="255" value="{{ item.title }}" />
+            <textarea class="input workspace-content-input">{{ item.content }}</textarea>
+            <div class="muted">Обновлено: {{ item.updated_at }}</div>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="muted" id="workspaceItemsEmpty">Пока нет дел и заметок.</p>
+      <ul class="work-item-list" id="workspaceItemsList"></ul>
+    {% endif %}
+  </section>
+</section>
+{% endblock %}
