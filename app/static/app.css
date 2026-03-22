@@ -100,21 +100,85 @@ main {
   box-shadow: 0 14px 30px -24px rgba(16, 24, 40, 0.45);
 }
 
-.hero-card {
-  background: linear-gradient(160deg, rgba(255, 255, 255, 0.95), rgba(232, 244, 246, 0.92));
-}
-
-.hero-top {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  align-items: flex-start;
+.studio-card {
+  background:
+    radial-gradient(circle at 92% 18%, rgba(15, 118, 110, 0.12), transparent 35%),
+    linear-gradient(165deg, rgba(255, 255, 255, 0.96), rgba(236, 246, 250, 0.92));
 }
 
 .hero-text {
   margin-top: 0;
   color: var(--muted);
   max-width: 700px;
+}
+
+.studio-grid {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: 1.5fr 1fr;
+  align-items: start;
+}
+
+.studio-left {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.studio-right {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.record-stage {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 8px 0 4px;
+}
+
+.record-orb {
+  width: 210px;
+  height: 210px;
+  border-radius: 999px;
+  border: 10px solid rgba(15, 118, 110, 0.18);
+  background: linear-gradient(160deg, #ffffff, #dff7f4);
+  color: #0f172a;
+  font-size: 23px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  box-shadow:
+    inset 0 3px 10px rgba(255, 255, 255, 0.8),
+    0 20px 50px -35px rgba(15, 23, 42, 0.9);
+  cursor: pointer;
+  transition: transform 0.16s ease, box-shadow 0.16s ease, background 0.2s ease;
+}
+
+.record-orb:hover {
+  transform: translateY(-1px) scale(1.01);
+}
+
+.record-orb.recording {
+  color: #ffffff;
+  background: linear-gradient(160deg, #ef4444, #b91c1c);
+  border-color: rgba(239, 68, 68, 0.3);
+  box-shadow:
+    inset 0 6px 14px rgba(255, 255, 255, 0.12),
+    0 20px 52px -32px rgba(185, 28, 28, 0.85);
+  animation: pulse 1.3s infinite ease-in-out;
+}
+
+.record-orb.paused {
+  color: #111827;
+  background: linear-gradient(160deg, #fde68a, #f59e0b);
+  border-color: rgba(245, 158, 11, 0.34);
+}
+
+.record-orb.loading {
+  color: #ffffff;
+  background: linear-gradient(160deg, #64748b, #475569);
+  border-color: rgba(100, 116, 139, 0.3);
 }
 
 .record-timer-box {
@@ -231,6 +295,15 @@ h3 {
   align-items: center;
 }
 
+.status-line.compact {
+  margin-left: 0;
+  justify-content: space-between;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.7);
+}
+
 .badge {
   display: inline-block;
   border-radius: 999px;
@@ -252,6 +325,11 @@ h3 {
   color: #991b1b;
 }
 
+.badge.paused {
+  background: #fef3c7;
+  color: #92400e;
+}
+
 .badge.preprocessing,
 .badge.transcribing {
   background: #fef3c7;
@@ -265,6 +343,46 @@ h3 {
 
 .badge.failed {
   background: #fee2e2;
+  color: #b91c1c;
+}
+
+.segment-panel {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.segment-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.segment-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-height: 220px;
+  overflow: auto;
+}
+
+.segment-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(214, 221, 232, 0.7);
+}
+
+.segment-list li.muted {
+  display: block;
+  border-bottom: 0;
+  padding: 4px 0;
+}
+
+.segment-list li.live strong {
   color: #b91c1c;
 }
 
@@ -372,6 +490,20 @@ mark {
 }
 
 @media (max-width: 860px) {
+  .studio-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .record-stage {
+    justify-content: flex-start;
+  }
+
+  .record-orb {
+    width: 170px;
+    height: 170px;
+    font-size: 20px;
+  }
+
   .meeting-meta-grid {
     grid-template-columns: 1fr;
   }
@@ -390,11 +522,6 @@ mark {
     padding-bottom: 10px;
   }
 
-  .hero-top {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
   .record-timer-box {
     width: 100%;
     text-align: left;
@@ -407,5 +534,17 @@ mark {
   .table {
     display: block;
     overflow-x: auto;
+  }
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.02);
+  }
+  100% {
+    transform: scale(1);
   }
 }

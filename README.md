@@ -108,11 +108,12 @@ Pages:
 ## 9. Record first meeting
 1. Open `/`.
 2. Enter optional title.
-3. Click **Start Recording**.
+3. Click **Начать запись**.
 4. Speak into Mac microphone.
-5. Click **Stop Recording**.
-6. App uploads audio and starts local processing.
-7. Open meeting page and wait for status `ready`.
+5. Use **Пауза / Продолжить** if needed.
+6. Click **Завершить и обработать**.
+7. App uploads audio and starts local processing.
+8. Open meeting page and wait for status `ready`.
 
 ## 10. Search text
 - Global search: `/search`

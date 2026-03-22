@@ -1,31 +1,51 @@
 {% extends "base.html" %}
 {% block title %}Запись встречи{% endblock %}
 {% block content %}
-<section class="card hero-card">
-  <div class="hero-top">
+<section class="card studio-card">
+  <div class="section-head">
     <div>
-      <h1>Запись встречи</h1>
-      <p class="hero-text">Нажмите старт, говорите, остановите запись. Дальше приложение само сохранит аудио, сделает сегменты и транскрипт.</p>
+      <h1>Студия записи встречи</h1>
+      <p class="hero-text">Можно ставить на паузу и продолжать. В конце запись автоматически отправится на локальную обработку.</p>
     </div>
-    <div class="record-timer-box">
-      <span class="muted">Таймер</span>
-      <strong id="recordingTimer">00:00</strong>
-    </div>
+    <a class="btn" href="/meetings">Архив встреч</a>
   </div>
 
-  <label class="label" for="meetingTitle">Название встречи</label>
-  <input id="meetingTitle" class="input" type="text" placeholder="Например: Планирование спринта" maxlength="255" />
+  <div class="studio-grid">
+    <div class="studio-left">
+      <label class="label" for="meetingTitle">Название встречи</label>
+      <input id="meetingTitle" class="input" type="text" placeholder="Например: Планирование спринта" maxlength="255" />
 
-  <div class="record-controls">
-    <button id="startRecordingBtn" class="btn btn-primary btn-lg">Начать запись</button>
-    <button id="stopRecordingBtn" class="btn btn-danger btn-lg" disabled>Остановить запись</button>
-    <span class="status-line">
-      <span>Статус:</span>
-      <span id="recordingStatusBadge" class="badge idle" data-status="idle">{{ status_label_ru("idle") }}</span>
-    </span>
+      <div class="record-stage">
+        <button id="recordingPrimaryBtn" class="record-orb idle" type="button">Начать запись</button>
+      </div>
+
+      <div class="record-controls">
+        <button id="finishRecordingBtn" class="btn btn-primary btn-lg" type="button" disabled>Завершить и обработать</button>
+        <button id="resetRecordingBtn" class="btn" type="button" disabled>Сбросить</button>
+      </div>
+      <p id="recordingError" class="error"></p>
+    </div>
+
+    <aside class="studio-right">
+      <div class="record-timer-box">
+        <span class="muted">Таймер встречи</span>
+        <strong id="recordingTimer">00:00</strong>
+      </div>
+      <div class="status-line compact">
+        <span>Статус</span>
+        <span id="recordingStatusBadge" class="badge idle" data-status="idle">{{ status_label_ru("idle") }}</span>
+      </div>
+      <div class="segment-panel">
+        <div class="segment-head">
+          <strong>Отрезки записи</strong>
+          <span class="muted" id="segmentCountLabel">0</span>
+        </div>
+        <ul id="recordingSegmentsList" class="segment-list">
+          <li class="muted">Пока нет отрезков</li>
+        </ul>
+      </div>
+    </aside>
   </div>
-
-  <p id="recordingError" class="error"></p>
 </section>
 
 <section class="card">

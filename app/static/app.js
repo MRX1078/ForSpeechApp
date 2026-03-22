@@ -2,6 +2,7 @@
   const STATUS_LABELS_RU = {
     idle: "ожидание",
     recording: "запись",
+    paused: "пауза",
     uploaded: "загружено",
     preprocessing: "предобработка",
     transcribing: "транскрибация",
@@ -20,18 +21,27 @@
     return `${String(min).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
   }
 
-  const startBtn = document.getElementById("startRecordingBtn");
-  const stopBtn = document.getElementById("stopRecordingBtn");
+  const primaryBtn = document.getElementById("recordingPrimaryBtn");
+  const finishBtn = document.getElementById("finishRecordingBtn");
+  const resetBtn = document.getElementById("resetRecordingBtn");
   const statusBadge = document.getElementById("recordingStatusBadge");
   const errorNode = document.getElementById("recordingError");
   const titleInput = document.getElementById("meetingTitle");
   const recordingTimerNode = document.getElementById("recordingTimer");
+  const segmentsListNode = document.getElementById("recordingSegmentsList");
+  const segmentCountNode = document.getElementById("segmentCountLabel");
 
   let mediaRecorder = null;
   let mediaStream = null;
   let chunks = [];
-  let recordingStartedAt = null;
+  let recordingState = "idle";
+  let discardCurrentRecording = false;
+  let elapsedMs = 0;
+  let phaseStartedAtMs = null;
   let recordingTimerInterval = null;
+  let segments = [];
+  let activeSegmentStartSec = null;
+  let currentRecordingFilename = "meeting.webm";
 
   function setStatus(value) {
     if (!statusBadge) return;
@@ -45,30 +55,133 @@
     errorNode.textContent = message || "";
   }
 
+  function currentElapsedMs() {
+    if (phaseStartedAtMs) {
+      return elapsedMs + (Date.now() - phaseStartedAtMs);
+    }
+    return elapsedMs;
+  }
+
+  function currentElapsedSec() {
+    return currentElapsedMs() / 1000;
+  }
+
+  function renderSegmentList() {
+    if (!segmentsListNode) return;
+    const rows = [];
+
+    segments.forEach((segment, idx) => {
+      rows.push(
+        `<li><span>Отрезок ${idx + 1}</span><strong>${formatTime(segment.start)} - ${formatTime(segment.end)}</strong></li>`
+      );
+    });
+
+    if (recordingState === "recording" && activeSegmentStartSec !== null) {
+      rows.push(
+        `<li class="live"><span>Текущий отрезок</span><strong>${formatTime(activeSegmentStartSec)} - ...</strong></li>`
+      );
+    }
+
+    if (rows.length === 0) {
+      rows.push('<li class="muted">Пока нет отрезков</li>');
+    }
+
+    segmentsListNode.innerHTML = rows.join("");
+    if (segmentCountNode) {
+      segmentCountNode.textContent = String(segments.length + (activeSegmentStartSec !== null ? 1 : 0));
+    }
+  }
+
+  function openActiveSegment() {
+    if (activeSegmentStartSec === null) {
+      activeSegmentStartSec = currentElapsedSec();
+      renderSegmentList();
+    }
+  }
+
+  function closeActiveSegment() {
+    if (activeSegmentStartSec === null) return;
+    const end = currentElapsedSec();
+    if (end - activeSegmentStartSec >= 0.1) {
+      segments.push({
+        start: activeSegmentStartSec,
+        end,
+      });
+    }
+    activeSegmentStartSec = null;
+    renderSegmentList();
+  }
+
   function startRecordingTimer() {
     if (!recordingTimerNode) return;
-    recordingStartedAt = Date.now();
-    recordingTimerNode.textContent = "00:00";
     if (recordingTimerInterval) {
       clearInterval(recordingTimerInterval);
     }
     recordingTimerInterval = setInterval(() => {
-      const elapsedSec = (Date.now() - recordingStartedAt) / 1000;
-      recordingTimerNode.textContent = formatTime(elapsedSec);
+      recordingTimerNode.textContent = formatTime(currentElapsedSec());
+      renderSegmentList();
     }, 200);
   }
 
-  function stopRecordingTimer(resetToZero) {
+  function stopRecordingTimer(resetSession) {
     if (recordingTimerInterval) {
       clearInterval(recordingTimerInterval);
       recordingTimerInterval = null;
     }
-    if (resetToZero && recordingTimerNode) {
+    if (resetSession && recordingTimerNode) {
       recordingTimerNode.textContent = "00:00";
     }
   }
 
-  async function startRecording() {
+  function renderRecordingControls() {
+    if (!primaryBtn || !finishBtn || !resetBtn) return;
+
+    primaryBtn.classList.remove("recording", "paused", "loading");
+    if (recordingState === "idle") {
+      primaryBtn.textContent = "Начать запись";
+      primaryBtn.disabled = false;
+      finishBtn.disabled = true;
+      resetBtn.disabled = true;
+      setStatus("idle");
+    } else if (recordingState === "recording") {
+      primaryBtn.textContent = "Пауза";
+      primaryBtn.classList.add("recording");
+      primaryBtn.disabled = false;
+      finishBtn.disabled = false;
+      resetBtn.disabled = false;
+      setStatus("recording");
+    } else if (recordingState === "paused") {
+      primaryBtn.textContent = "Продолжить";
+      primaryBtn.classList.add("paused");
+      primaryBtn.disabled = false;
+      finishBtn.disabled = false;
+      resetBtn.disabled = false;
+      setStatus("paused");
+    } else if (recordingState === "uploading") {
+      primaryBtn.textContent = "Сохранение...";
+      primaryBtn.classList.add("loading");
+      primaryBtn.disabled = true;
+      finishBtn.disabled = true;
+      resetBtn.disabled = true;
+      setStatus("preprocessing");
+    }
+  }
+
+  function resetSessionState() {
+    recordingState = "idle";
+    discardCurrentRecording = false;
+    elapsedMs = 0;
+    phaseStartedAtMs = null;
+    segments = [];
+    activeSegmentStartSec = null;
+    currentRecordingFilename = "meeting.webm";
+    chunks = [];
+    stopRecordingTimer(true);
+    renderSegmentList();
+    renderRecordingControls();
+  }
+
+  async function beginRecordingSession() {
     setError("");
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       setError("Браузер не поддерживает запись с микрофона.");
@@ -77,9 +190,29 @@
 
     try {
       mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const options = { mimeType: "audio/webm" };
+      const mimeCandidates = [
+        "audio/webm;codecs=opus",
+        "audio/webm",
+        "audio/mp4",
+      ];
+      const selectedMimeType = mimeCandidates.find((mime) => {
+        if (!window.MediaRecorder || typeof MediaRecorder.isTypeSupported !== "function") {
+          return false;
+        }
+        return MediaRecorder.isTypeSupported(mime);
+      });
+
+      const options = selectedMimeType ? { mimeType: selectedMimeType } : {};
+      currentRecordingFilename = selectedMimeType && selectedMimeType.includes("mp4")
+        ? "meeting.m4a"
+        : "meeting.webm";
       mediaRecorder = new MediaRecorder(mediaStream, options);
       chunks = [];
+      elapsedMs = 0;
+      phaseStartedAtMs = Date.now();
+      segments = [];
+      activeSegmentStartSec = null;
+      discardCurrentRecording = false;
 
       mediaRecorder.ondataavailable = (event) => {
         if (event.data && event.data.size > 0) {
@@ -88,11 +221,18 @@
       };
 
       mediaRecorder.onstop = async () => {
+        if (discardCurrentRecording) {
+          cleanupStream();
+          resetSessionState();
+          return;
+        }
+
         try {
           setStatus("uploaded");
-          const blob = new Blob(chunks, { type: "audio/webm" });
+          const blobType = (chunks[0] && chunks[0].type) || options.mimeType || "audio/webm";
+          const blob = new Blob(chunks, { type: blobType });
           const formData = new FormData();
-          formData.append("file", blob, "meeting.webm");
+          formData.append("file", blob, currentRecordingFilename);
           if (titleInput && titleInput.value.trim()) {
             formData.append("title", titleInput.value.trim());
           }
@@ -114,43 +254,112 @@
           setError(err.message || "Не удалось загрузить аудио");
         } finally {
           cleanupStream();
+          resetSessionState();
         }
       };
 
       mediaRecorder.start(500);
+      openActiveSegment();
       startRecordingTimer();
-      setStatus("recording");
-      startBtn.disabled = true;
-      stopBtn.disabled = false;
+      recordingState = "recording";
+      renderRecordingControls();
     } catch (err) {
       setError(err.message || "Не удалось получить доступ к микрофону");
     }
   }
 
-  function stopRecording() {
+  function pauseRecording() {
+    if (!mediaRecorder || mediaRecorder.state !== "recording") return;
+    if (typeof mediaRecorder.pause !== "function") {
+      setError("Пауза не поддерживается в этом браузере.");
+      return;
+    }
+    mediaRecorder.pause();
+    if (phaseStartedAtMs) {
+      elapsedMs += Date.now() - phaseStartedAtMs;
+      phaseStartedAtMs = null;
+    }
+    closeActiveSegment();
+    recordingState = "paused";
+    renderRecordingControls();
+  }
+
+  function resumeRecording() {
+    if (!mediaRecorder || mediaRecorder.state !== "paused") return;
+    if (typeof mediaRecorder.resume !== "function") {
+      setError("Продолжение записи не поддерживается в этом браузере.");
+      return;
+    }
+    mediaRecorder.resume();
+    phaseStartedAtMs = Date.now();
+    openActiveSegment();
+    recordingState = "recording";
+    renderRecordingControls();
+  }
+
+  function finishRecording() {
     if (!mediaRecorder) return;
-    if (mediaRecorder.state !== "inactive") {
+    if (mediaRecorder.state === "recording") {
+      elapsedMs += Date.now() - phaseStartedAtMs;
+      phaseStartedAtMs = null;
+      closeActiveSegment();
+    }
+    if (mediaRecorder.state === "recording" || mediaRecorder.state === "paused") {
+      recordingState = "uploading";
+      renderRecordingControls();
       mediaRecorder.stop();
     }
-    stopRecordingTimer(false);
-    setStatus("preprocessing");
-    startBtn.disabled = false;
-    stopBtn.disabled = true;
+  }
+
+  function discardRecording() {
+    if (!mediaRecorder) {
+      resetSessionState();
+      return;
+    }
+    if (!confirm("Сбросить текущую запись?")) return;
+    discardCurrentRecording = true;
+    if (mediaRecorder.state === "recording") {
+      elapsedMs += Date.now() - phaseStartedAtMs;
+      phaseStartedAtMs = null;
+      closeActiveSegment();
+    }
+    if (mediaRecorder.state === "recording" || mediaRecorder.state === "paused") {
+      mediaRecorder.stop();
+    } else {
+      cleanupStream();
+      resetSessionState();
+    }
+  }
+
+  function handlePrimaryButton() {
+    if (recordingState === "idle") {
+      beginRecordingSession();
+      return;
+    }
+    if (recordingState === "recording") {
+      pauseRecording();
+      return;
+    }
+    if (recordingState === "paused") {
+      resumeRecording();
+    }
   }
 
   function cleanupStream() {
-    stopRecordingTimer(true);
+    stopRecordingTimer(false);
     if (mediaStream) {
       mediaStream.getTracks().forEach((track) => track.stop());
     }
     mediaStream = null;
     mediaRecorder = null;
-    chunks = [];
   }
 
-  if (startBtn && stopBtn) {
-    startBtn.addEventListener("click", startRecording);
-    stopBtn.addEventListener("click", stopRecording);
+  if (primaryBtn && finishBtn && resetBtn) {
+    renderSegmentList();
+    renderRecordingControls();
+    primaryBtn.addEventListener("click", handlePrimaryButton);
+    finishBtn.addEventListener("click", finishRecording);
+    resetBtn.addEventListener("click", discardRecording);
   }
 
   const meetingRoot = document.getElementById("meetingDetailRoot");
