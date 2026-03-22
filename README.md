@@ -6,11 +6,12 @@ This app records meetings from your Mac microphone in the browser, uploads audio
 Pipeline:
 1. Record audio via `MediaRecorder` in browser.
 2. Save original file in `./data/recordings/`.
-3. Normalize audio with `ffmpeg` to mono/16kHz/PCM WAV.
-4. Split speech windows with Silero VAD.
-5. Transcribe each segment locally with `whisper.cpp`.
-6. Save transcript + segments to SQLite (`./data/app.db`).
-7. Index text in `transcript_fts` (FTS5).
+3. Create compressed archive copy (`.m4a`, low bitrate) in `./data/recordings/`.
+4. Normalize audio with `ffmpeg` to mono/16kHz/PCM WAV.
+5. Split speech windows with Silero VAD.
+6. Transcribe each segment locally with `whisper.cpp`.
+7. Save transcript + segments to SQLite (`./data/app.db`).
+8. Index text in `transcript_fts` (FTS5).
 
 ## 2. Local components used
 - Python 3.11+
@@ -70,6 +71,8 @@ source .venv/bin/activate
 export WHISPER_CPP_BIN="/Users/maksimshatokhin/Documents/New project/models/whisper.cpp/build/bin/whisper-cli"
 export WHISPER_MODEL_PATH="/Users/maksimshatokhin/Documents/New project/models/ggml-base.bin"
 export WHISPER_LANGUAGE="ru"
+# optional: compressed archive bitrate in kbps (default 32)
+# export COMPRESSED_AUDIO_BITRATE_KBPS="24"
 uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
@@ -129,6 +132,7 @@ Implemented API:
 - `GET /api/meetings/{meeting_id}/search?q=...`
 - `GET /api/meetings/{meeting_id}/export.txt`
 - `GET /api/meetings/{meeting_id}/export.md`
+- `GET /api/meetings/{meeting_id}/audio-compressed`
 
 ## Project layout
 ```text

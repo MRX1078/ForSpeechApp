@@ -49,13 +49,19 @@ class TranscriptPipeline:
                 raise RuntimeError("Meeting has no original audio path")
 
             normalized_path = self.storage.normalized_audio_path(meeting_id)
+            compressed_path = self.storage.compressed_audio_path(meeting_id)
             duration_sec = self.preprocessor.preprocess(
                 input_path=Path(original_audio_path),
                 output_path=normalized_path,
             )
+            self.preprocessor.create_compressed_archive(
+                input_path=normalized_path,
+                output_path=compressed_path,
+            )
             self.db.update_after_preprocess(
                 meeting_id=meeting_id,
                 normalized_audio_path=str(normalized_path),
+                compressed_audio_path=str(compressed_path),
                 duration_sec=duration_sec,
             )
 

@@ -34,6 +34,7 @@ class Settings:
         )
         self.whisper_language = os.getenv("WHISPER_LANGUAGE", "ru")
         self.whisper_threads = int(os.getenv("WHISPER_THREADS", "4"))
+        self.compressed_audio_bitrate_kbps = int(os.getenv("COMPRESSED_AUDIO_BITRATE_KBPS", "32"))
 
         self.vad_threshold = float(os.getenv("VAD_THRESHOLD", "0.5"))
         self.vad_min_speech_ms = int(os.getenv("VAD_MIN_SPEECH_MS", "250"))

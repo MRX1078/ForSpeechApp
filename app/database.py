@@ -41,6 +41,7 @@ class Database:
                     title TEXT NOT NULL,
                     status TEXT NOT NULL,
                     original_audio_path TEXT NOT NULL,
+                    compressed_audio_path TEXT,
                     normalized_audio_path TEXT,
                     transcript_text TEXT NOT NULL DEFAULT '',
                     duration_sec REAL,
@@ -72,6 +73,19 @@ class Database:
                 );
                 """
             )
+            self._ensure_column_exists(conn, "meetings", "compressed_audio_path", "TEXT")
+
+    def _ensure_column_exists(
+        self,
+        conn: sqlite3.Connection,
+        table_name: str,
+        column_name: str,
+        column_type_sql: str,
+    ) -> None:
+        rows = conn.execute(f"PRAGMA table_info({table_name})").fetchall()
+        existing_columns = {row["name"] for row in rows}
+        if column_name not in existing_columns:
+            conn.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_type_sql}")
 
     def _row_to_dict(self, row: Optional[sqlite3.Row]) -> Optional[dict]:
         if row is None:
@@ -82,7 +96,7 @@ class Database:
         with self.connect() as conn:
             rows = conn.execute(
                 """
-                SELECT id, title, status, original_audio_path, normalized_audio_path,
+                SELECT id, title, status, original_audio_path, compressed_audio_path, normalized_audio_path,
                        transcript_text, duration_sec, error_message, created_at, updated_at
                 FROM meetings
                 ORDER BY created_at DESC
@@ -96,7 +110,7 @@ class Database:
         with self.connect() as conn:
             row = conn.execute(
                 """
-                SELECT id, title, status, original_audio_path, normalized_audio_path,
+                SELECT id, title, status, original_audio_path, compressed_audio_path, normalized_audio_path,
                        transcript_text, duration_sec, error_message, created_at, updated_at
                 FROM meetings
                 WHERE id = ?
@@ -151,16 +165,17 @@ class Database:
         self,
         meeting_id: str,
         normalized_audio_path: str,
+        compressed_audio_path: str,
         duration_sec: float,
     ) -> None:
         with self.connect() as conn:
             conn.execute(
                 """
                 UPDATE meetings
-                SET normalized_audio_path = ?, duration_sec = ?, updated_at = ?
+                SET normalized_audio_path = ?, compressed_audio_path = ?, duration_sec = ?, updated_at = ?
                 WHERE id = ?
                 """,
-                (normalized_audio_path, duration_sec, now_utc_iso(), meeting_id),
+                (normalized_audio_path, compressed_audio_path, duration_sec, now_utc_iso(), meeting_id),
             )
 
     def get_segments(self, meeting_id: str) -> list[dict]:

@@ -30,6 +30,9 @@ class StorageService:
     def normalized_audio_path(self, meeting_id: str) -> Path:
         return self.settings.processed_dir / f"{meeting_id}.wav"
 
+    def compressed_audio_path(self, meeting_id: str) -> Path:
+        return self.settings.recordings_dir / f"{meeting_id}.archive.m4a"
+
     def segment_audio_path(self, meeting_id: str, segment_idx: int) -> Path:
         return self.settings.processed_dir / f"{meeting_id}.seg_{segment_idx:04d}.wav"
 
@@ -54,9 +57,12 @@ class StorageService:
 
         if meeting:
             original = meeting.get("original_audio_path")
+            compressed = meeting.get("compressed_audio_path")
             normalized = meeting.get("normalized_audio_path")
             if original:
                 paths.append(Path(original))
+            if compressed:
+                paths.append(Path(compressed))
             if normalized:
                 paths.append(Path(normalized))
 

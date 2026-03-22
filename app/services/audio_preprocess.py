@@ -29,6 +29,26 @@ class AudioPreprocessor:
         self._run(cmd, "ffmpeg preprocessing failed")
         return self.get_duration_sec(output_path)
 
+    def create_compressed_archive(self, input_path: Path, output_path: Path) -> None:
+        cmd = [
+            "ffmpeg",
+            "-y",
+            "-i",
+            str(input_path),
+            "-ac",
+            "1",
+            "-ar",
+            "16000",
+            "-c:a",
+            "aac",
+            "-b:a",
+            f"{self.settings.compressed_audio_bitrate_kbps}k",
+            "-movflags",
+            "+faststart",
+            str(output_path),
+        ]
+        self._run(cmd, "ffmpeg compressed archive creation failed")
+
     def extract_segment(
         self,
         input_path: Path,

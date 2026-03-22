@@ -27,6 +27,9 @@
     <button id="deleteBtn" class="btn btn-danger">Удалить</button>
     <a class="btn" href="/api/meetings/{{ meeting.id }}/export.txt">Экспорт TXT</a>
     <a class="btn" href="/api/meetings/{{ meeting.id }}/export.md">Экспорт Markdown</a>
+    {% if meeting.compressed_audio_path %}
+      <a class="btn" href="/api/meetings/{{ meeting.id }}/audio-compressed">Скачать сжатое аудио</a>
+    {% endif %}
   </div>
 
   <h2>Транскрипт</h2>

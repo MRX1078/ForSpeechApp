@@ -15,6 +15,7 @@ class MeetingResponse(BaseModel):
     title: str
     status: str
     original_audio_path: Optional[str] = None
+    compressed_audio_path: Optional[str] = None
     normalized_audio_path: Optional[str] = None
     transcript_text: str = ""
     duration_sec: Optional[float] = None
