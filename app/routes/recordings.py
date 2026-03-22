@@ -26,10 +26,10 @@ async def upload_audio(
 ) -> dict:
     data = await file.read()
     if not data:
-        raise HTTPException(status_code=400, detail="Uploaded file is empty")
+        raise HTTPException(status_code=400, detail="Загруженный файл пустой")
 
     if file.content_type and not file.content_type.startswith("audio/"):
-        raise HTTPException(status_code=400, detail="Expected audio file")
+        raise HTTPException(status_code=400, detail="Ожидался аудиофайл")
 
     meeting_id = str(uuid4())
     extension = storage.choose_extension(file.filename, file.content_type)
@@ -38,7 +38,7 @@ async def upload_audio(
     cleaned_title = (title or "").strip()
     if not cleaned_title:
         now = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-        cleaned_title = f"Meeting {now}"
+        cleaned_title = f"Встреча {now}"
 
     db.insert_meeting(
         meeting_id=meeting_id,
@@ -50,6 +50,6 @@ async def upload_audio(
     background_tasks.add_task(pipeline.process_meeting, meeting_id)
     meeting = db.get_meeting(meeting_id)
     if meeting is None:
-        raise HTTPException(status_code=500, detail="Could not create meeting")
+        raise HTTPException(status_code=500, detail="Не удалось создать встречу")
 
     return meeting

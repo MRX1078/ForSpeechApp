@@ -1,4 +1,18 @@
 (function () {
+  const STATUS_LABELS_RU = {
+    idle: "ожидание",
+    recording: "запись",
+    uploaded: "загружено",
+    preprocessing: "предобработка",
+    transcribing: "транскрибация",
+    ready: "готово",
+    failed: "ошибка",
+  };
+
+  function statusLabel(value) {
+    return STATUS_LABELS_RU[value] || value;
+  }
+
   const startBtn = document.getElementById("startRecordingBtn");
   const stopBtn = document.getElementById("stopRecordingBtn");
   const statusBadge = document.getElementById("recordingStatusBadge");
@@ -11,8 +25,9 @@
 
   function setStatus(value) {
     if (!statusBadge) return;
-    statusBadge.textContent = value;
+    statusBadge.textContent = statusLabel(value);
     statusBadge.className = "badge " + value;
+    statusBadge.dataset.status = value;
   }
 
   function setError(message) {
@@ -23,7 +38,7 @@
   async function startRecording() {
     setError("");
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      setError("Browser does not support microphone recording.");
+      setError("Браузер не поддерживает запись с микрофона.");
       return;
     }
 
@@ -56,14 +71,14 @@
 
           if (!response.ok) {
             const payload = await response.json().catch(() => ({}));
-            throw new Error(payload.detail || "Upload failed");
+            throw new Error(payload.detail || "Не удалось загрузить аудио");
           }
 
           const meeting = await response.json();
           window.location.href = `/meetings/${meeting.id}`;
         } catch (err) {
           setStatus("failed");
-          setError(err.message || "Upload failed");
+          setError(err.message || "Не удалось загрузить аудио");
         } finally {
           cleanupStream();
         }
@@ -74,7 +89,7 @@
       startBtn.disabled = true;
       stopBtn.disabled = false;
     } catch (err) {
-      setError(err.message || "Microphone access failed");
+      setError(err.message || "Не удалось получить доступ к микрофону");
     }
   }
 
@@ -124,14 +139,14 @@
         if (response.ok) {
           window.location.reload();
         } else {
-          alert("Rename failed");
+          alert("Не удалось переименовать встречу");
         }
       });
     }
 
     if (deleteBtn) {
       deleteBtn.addEventListener("click", async () => {
-        if (!confirm("Delete this meeting?")) return;
+        if (!confirm("Удалить эту встречу?")) return;
 
         const response = await fetch(`/api/meetings/${meetingId}`, {
           method: "DELETE",
@@ -139,7 +154,7 @@
         if (response.ok) {
           window.location.href = "/meetings";
         } else {
-          alert("Delete failed");
+          alert("Не удалось удалить встречу");
         }
       });
     }
@@ -154,14 +169,14 @@
           window.location.reload();
         } else {
           reprocessBtn.disabled = false;
-          alert("Reprocess failed");
+          alert("Не удалось запустить переобработку");
         }
       });
     }
 
     const statusBadgeNode = meetingRoot.querySelector(".badge");
     if (statusBadgeNode) {
-      const statusText = statusBadgeNode.textContent.trim();
+      const statusText = (statusBadgeNode.dataset.status || statusBadgeNode.textContent || "").trim();
       if (statusText === "uploaded" || statusText === "preprocessing" || statusText === "transcribing") {
         setTimeout(() => window.location.reload(), 4000);
       }

@@ -7,6 +7,7 @@ from fastapi.templating import Jinja2Templates
 
 from app.database import Database
 from app.deps import get_db, get_search_service, get_settings
+from app.i18n import status_label_ru
 from app.routes.exports import router as exports_router
 from app.routes.health import router as health_router
 from app.routes.meetings import router as meetings_router
@@ -18,8 +19,9 @@ from app.services.search import SearchService
 def create_app() -> FastAPI:
     settings = get_settings()
     templates = Jinja2Templates(directory=str(settings.templates_dir))
+    templates.env.globals["status_label_ru"] = status_label_ru
 
-    app = FastAPI(title="Local Meeting Recorder", version="0.1.0")
+    app = FastAPI(title="Локальный диктофон встреч", version="0.1.0")
     app.mount("/static", StaticFiles(directory=str(settings.static_dir)), name="static")
 
     @app.on_event("startup")

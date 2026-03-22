@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from app.database import Database
+from app.i18n import status_label_ru
 from app.services.storage import StorageService
 
 
@@ -14,20 +15,20 @@ class ExportService:
     def export_txt(self, meeting_id: str) -> str:
         meeting = self.db.get_meeting(meeting_id)
         if meeting is None:
-            raise ValueError("Meeting not found")
+            raise ValueError("Встреча не найдена")
 
         segments = self.db.get_segments(meeting_id)
 
         lines: list[str] = []
-        lines.append(f"Title: {meeting['title']}")
-        lines.append(f"Status: {meeting['status']}")
-        lines.append(f"Created at (UTC): {meeting['created_at']}")
-        lines.append(f"Duration: {meeting.get('duration_sec') or 0:.2f} sec")
+        lines.append(f"Название: {meeting['title']}")
+        lines.append(f"Статус: {status_label_ru(meeting['status'])}")
+        lines.append(f"Создано (UTC): {meeting['created_at']}")
+        lines.append(f"Длительность: {meeting.get('duration_sec') or 0:.2f} сек")
         lines.append("")
-        lines.append("Transcript:")
+        lines.append("Транскрипт:")
         lines.append(meeting.get("transcript_text") or "")
         lines.append("")
-        lines.append("Segments:")
+        lines.append("Сегменты:")
 
         for seg in segments:
             lines.append(f"[{seg['start_sec']:.2f} - {seg['end_sec']:.2f}] {seg['text']}")
@@ -40,7 +41,7 @@ class ExportService:
     def export_markdown(self, meeting_id: str) -> str:
         meeting = self.db.get_meeting(meeting_id)
         if meeting is None:
-            raise ValueError("Meeting not found")
+            raise ValueError("Встреча не найдена")
 
         segments = self.db.get_segments(meeting_id)
         created_at = meeting.get("created_at")
@@ -53,16 +54,16 @@ class ExportService:
         lines: list[str] = []
         lines.append(f"# {meeting['title']}")
         lines.append("")
-        lines.append(f"- Meeting ID: `{meeting['id']}`")
-        lines.append(f"- Status: `{meeting['status']}`")
-        lines.append(f"- Created at: `{created_fmt}`")
-        lines.append(f"- Duration: `{(meeting.get('duration_sec') or 0):.2f} sec`")
+        lines.append(f"- ID встречи: `{meeting['id']}`")
+        lines.append(f"- Статус: `{status_label_ru(meeting['status'])}`")
+        lines.append(f"- Создано: `{created_fmt}`")
+        lines.append(f"- Длительность: `{(meeting.get('duration_sec') or 0):.2f} сек`")
         lines.append("")
-        lines.append("## Transcript")
+        lines.append("## Транскрипт")
         lines.append("")
         lines.append(meeting.get("transcript_text") or "")
         lines.append("")
-        lines.append("## Segments")
+        lines.append("## Сегменты")
         lines.append("")
 
         for seg in segments:

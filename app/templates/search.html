@@ -1,15 +1,15 @@
 {% extends "base.html" %}
-{% block title %}Global Search{% endblock %}
+{% block title %}Глобальный поиск{% endblock %}
 {% block content %}
 <section class="card">
-  <h1>Search All Meetings</h1>
+  <h1>Поиск по всем встречам</h1>
   <form method="GET" action="/search" class="inline-form">
-    <input type="text" name="q" class="input" value="{{ q }}" placeholder="Search transcript text" />
-    <button type="submit" class="btn">Search</button>
+    <input type="text" name="q" class="input" value="{{ q }}" placeholder="Поиск по тексту транскрипта" />
+    <button type="submit" class="btn">Найти</button>
   </form>
 
   {% if q %}
-    <h2>Results for "{{ q }}"</h2>
+    <h2>Результаты по запросу "{{ q }}"</h2>
     {% if results %}
       <ul class="meeting-list">
         {% for row in results %}
@@ -21,7 +21,7 @@
         {% endfor %}
       </ul>
     {% else %}
-      <p class="muted">No matches.</p>
+      <p class="muted">Совпадений не найдено.</p>
     {% endif %}
   {% endif %}
 </section>

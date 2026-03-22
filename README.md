@@ -69,6 +69,7 @@ cp models/ggml-base.bin ../ggml-base.bin
 source .venv/bin/activate
 export WHISPER_CPP_BIN="/Users/maksimshatokhin/Documents/New project/models/whisper.cpp/build/bin/whisper-cli"
 export WHISPER_MODEL_PATH="/Users/maksimshatokhin/Documents/New project/models/ggml-base.bin"
+export WHISPER_LANGUAGE="ru"
 uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 

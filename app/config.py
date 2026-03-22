@@ -32,7 +32,7 @@ class Settings:
         self.whisper_model_path = Path(
             os.getenv("WHISPER_MODEL_PATH", self.models_dir / "ggml-base.bin")
         )
-        self.whisper_language = os.getenv("WHISPER_LANGUAGE", "auto")
+        self.whisper_language = os.getenv("WHISPER_LANGUAGE", "ru")
         self.whisper_threads = int(os.getenv("WHISPER_THREADS", "4"))
 
         self.vad_threshold = float(os.getenv("VAD_THRESHOLD", "0.5"))

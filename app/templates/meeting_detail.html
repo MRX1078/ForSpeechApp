@@ -1,71 +1,71 @@
 {% extends "base.html" %}
-{% block title %}Meeting{% endblock %}
+{% block title %}Встреча{% endblock %}
 {% block content %}
 {% if not meeting %}
 <section class="card">
-  <h1>Meeting not found</h1>
+  <h1>Встреча не найдена</h1>
 </section>
 {% else %}
 <section class="card" data-meeting-id="{{ meeting.id }}" id="meetingDetailRoot">
   <h1>{{ meeting.title }}</h1>
   <p>
-    <span class="badge {{ meeting.status }}">{{ meeting.status }}</span>
-    <span class="muted">Created: {{ meeting.created_at }}</span>
-    <span class="muted">Duration: {{ "%.2f"|format(meeting.duration_sec or 0) }} sec</span>
+    <span class="badge {{ meeting.status }}" data-status="{{ meeting.status }}">{{ status_label_ru(meeting.status) }}</span>
+    <span class="muted">Создано: {{ meeting.created_at }}</span>
+    <span class="muted">Длительность: {{ "%.2f"|format(meeting.duration_sec or 0) }} сек</span>
   </p>
 
   {% if meeting.error_message %}
-    <p class="error">Error: {{ meeting.error_message }}</p>
+    <p class="error">Ошибка: {{ meeting.error_message }}</p>
   {% endif %}
 
   <div class="actions">
     <form id="renameForm" class="inline-form">
       <input id="renameInput" class="input" type="text" value="{{ meeting.title }}" maxlength="255" />
-      <button type="submit" class="btn">Rename</button>
+      <button type="submit" class="btn">Переименовать</button>
     </form>
-    <button id="reprocessBtn" class="btn">Reprocess</button>
-    <button id="deleteBtn" class="btn btn-danger">Delete</button>
-    <a class="btn" href="/api/meetings/{{ meeting.id }}/export.txt">Export TXT</a>
-    <a class="btn" href="/api/meetings/{{ meeting.id }}/export.md">Export Markdown</a>
+    <button id="reprocessBtn" class="btn">Переобработать</button>
+    <button id="deleteBtn" class="btn btn-danger">Удалить</button>
+    <a class="btn" href="/api/meetings/{{ meeting.id }}/export.txt">Экспорт TXT</a>
+    <a class="btn" href="/api/meetings/{{ meeting.id }}/export.md">Экспорт Markdown</a>
   </div>
 
-  <h2>Transcript</h2>
+  <h2>Транскрипт</h2>
   <pre class="transcript-box">{{ meeting.transcript_text }}</pre>
 </section>
 
 <section class="card">
-  <h2>Search in this meeting</h2>
+  <h2>Поиск внутри встречи</h2>
   <form method="GET" action="/meetings/{{ meeting.id }}" class="inline-form">
-    <input type="text" name="q" class="input" value="{{ q }}" placeholder="Enter phrase" />
-    <button class="btn" type="submit">Search</button>
+    <input type="text" name="q" class="input" value="{{ q }}" placeholder="Введите фразу" />
+    <button class="btn" type="submit">Найти</button>
   </form>
 
   {% if q %}
-    <h3>Results for "{{ q }}"</h3>
+    <h3>Результаты по запросу "{{ q }}"</h3>
     {% if meeting_search_results %}
       <ul class="meeting-list">
         {% for row in meeting_search_results %}
           <li>
-            <div><strong>{{ "%.2f"|format(row.start_sec) }} - {{ "%.2f"|format(row.end_sec) }} sec</strong></div>
+            <div><strong>{{ "%.2f"|format(row.start_sec) }} - {{ "%.2f"|format(row.end_sec) }} сек</strong></div>
             <div>{{ row.snippet | safe }}</div>
           </li>
         {% endfor %}
       </ul>
     {% else %}
-      <p class="muted">No matches.</p>
+      <p class="muted">Совпадений не найдено.</p>
     {% endif %}
   {% endif %}
 </section>
 
 <section class="card">
-  <h2>Segments</h2>
+  <h2>Сегменты</h2>
   {% if segments %}
     <table class="table">
       <thead>
         <tr>
-          <th>Start</th>
-          <th>End</th>
-          <th>Text</th>
+          <th>Начало</th>
+          <th>Конец</th>
+          <th>Текст</th>
         </tr>
       </thead>
       <tbody>
@@ -79,7 +79,7 @@
       </tbody>
     </table>
   {% else %}
-    <p class="muted">No transcript segments yet.</p>
+    <p class="muted">Сегменты пока не готовы.</p>
   {% endif %}
 </section>
 {% endif %}
