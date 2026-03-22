@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Global Search{% endblock %}
+{% block content %}
+<section class="card">
+  <h1>Search All Meetings</h1>
+  <form method="GET" action="/search" class="inline-form">
+    <input type="text" name="q" class="input" value="{{ q }}" placeholder="Search transcript text" />
+    <button type="submit" class="btn">Search</button>
+  </form>
+
+  {% if q %}
+    <h2>Results for "{{ q }}"</h2>
+    {% if results %}
+      <ul class="meeting-list">
+        {% for row in results %}
+          <li>
+            <a href="/meetings/{{ row.meeting_id }}">{{ row.meeting_title }}</a>
+            <span class="muted">{{ row.meeting_created_at }}</span>
+            <div>{{ row.snippet | safe }}</div>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="muted">No matches.</p>
+    {% endif %}
+  {% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,489 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#f6f7fb" />
+    <title>Speech Notes Test (iPhone Safari)</title>
+    <style>
+      :root {
+        --bg: #f6f7fb;
+        --card: #ffffff;
+        --text: #1c1c1e;
+        --muted: #666b75;
+        --accent: #0a84ff;
+        --accent-strong: #0066cc;
+        --danger: #d93a2f;
+        --border: #d9dee8;
+        --ok: #0a7f3f;
+        --shadow: 0 8px 24px rgba(10, 20, 40, 0.08);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+        background: linear-gradient(180deg, #f7f8fc 0%, #edf0f8 100%);
+        color: var(--text);
+        -webkit-font-smoothing: antialiased;
+        text-rendering: optimizeLegibility;
+        padding: calc(env(safe-area-inset-top) + 8px) 14px calc(env(safe-area-inset-bottom) + 16px);
+      }
+
+      .wrap {
+        width: 100%;
+        max-width: 700px;
+        margin: 0 auto;
+      }
+
+      .status-bar {
+        position: sticky;
+        top: calc(env(safe-area-inset-top));
+        z-index: 10;
+        background: rgba(255, 255, 255, 0.92);
+        backdrop-filter: blur(8px);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        box-shadow: var(--shadow);
+        padding: 14px;
+        margin-bottom: 12px;
+      }
+
+      .status-title {
+        margin: 0;
+        font-size: 15px;
+        color: var(--muted);
+      }
+
+      .status-value {
+        margin: 6px 0 0;
+        font-size: 26px;
+        font-weight: 760;
+        letter-spacing: 0.2px;
+      }
+
+      .status-value.listening {
+        color: var(--ok);
+      }
+
+      .status-value.stopped {
+        color: #444;
+      }
+
+      .status-value.unsupported,
+      .status-value.error {
+        color: var(--danger);
+      }
+
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        box-shadow: var(--shadow);
+        padding: 14px;
+        margin-bottom: 12px;
+      }
+
+      .controls {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+
+      button {
+        min-height: 54px;
+        border: 0;
+        border-radius: 14px;
+        padding: 12px 14px;
+        font-size: 19px;
+        font-weight: 700;
+        cursor: pointer;
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      .btn-start {
+        grid-column: span 2;
+        min-height: 68px;
+        font-size: 24px;
+        background: var(--accent);
+        color: #fff;
+      }
+
+      .btn-start:active {
+        background: var(--accent-strong);
+      }
+
+      .btn-stop {
+        background: #111;
+        color: #fff;
+      }
+
+      .btn-save {
+        background: #e9f3ff;
+        color: #0a4b8f;
+      }
+
+      button[disabled] {
+        opacity: 0.45;
+        cursor: not-allowed;
+      }
+
+      .section-title {
+        margin: 0 0 8px;
+        font-size: 15px;
+        color: var(--muted);
+        font-weight: 700;
+      }
+
+      .transcript-box {
+        width: 100%;
+        min-height: 120px;
+        background: #fbfcff;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 12px;
+        font-size: 18px;
+        line-height: 1.45;
+        word-break: break-word;
+        white-space: pre-wrap;
+      }
+
+      .interim-box {
+        margin-top: 10px;
+        width: 100%;
+        min-height: 64px;
+        background: #fffaf0;
+        border: 1px solid #ffe2a8;
+        border-radius: 12px;
+        padding: 10px 12px;
+        font-size: 17px;
+        color: #6a5309;
+        line-height: 1.4;
+        word-break: break-word;
+      }
+
+      .notes-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        gap: 10px;
+      }
+
+      .note-item {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: #fff;
+        padding: 12px;
+      }
+
+      .note-text {
+        margin: 0 0 10px;
+        font-size: 17px;
+        line-height: 1.4;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+
+      .note-meta {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+
+      .note-time {
+        font-size: 13px;
+        color: var(--muted);
+      }
+
+      .btn-delete {
+        border: 1px solid #ffd2cd;
+        background: #fff1ef;
+        color: var(--danger);
+        min-height: 38px;
+        border-radius: 10px;
+        font-size: 15px;
+        padding: 8px 10px;
+      }
+
+      .empty {
+        margin: 0;
+        color: var(--muted);
+        font-size: 16px;
+      }
+
+      .hint {
+        margin-top: 10px;
+        font-size: 14px;
+        color: var(--muted);
+      }
+
+      @media (min-width: 720px) {
+        .controls {
+          grid-template-columns: 1fr 1fr 1fr;
+        }
+
+        .btn-start {
+          grid-column: span 1;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="wrap">
+      <section class="status-bar" aria-live="polite">
+        <p class="status-title">Status</p>
+        <p id="statusValue" class="status-value stopped">stopped</p>
+      </section>
+
+      <section class="card">
+        <div class="controls">
+          <button id="startBtn" class="btn-start" type="button">Start</button>
+          <button id="stopBtn" class="btn-stop" type="button">Stop</button>
+          <button id="saveBtn" class="btn-save" type="button">Save note</button>
+        </div>
+        <p class="hint" id="messageText"></p>
+      </section>
+
+      <section class="card">
+        <h2 class="section-title">Live transcript (final)</h2>
+        <div id="finalTranscript" class="transcript-box"></div>
+        <h2 class="section-title" style="margin-top: 12px">Interim transcript</h2>
+        <div id="interimTranscript" class="interim-box"></div>
+      </section>
+
+      <section class="card">
+        <h2 class="section-title">Saved notes</h2>
+        <ul id="notesList" class="notes-list"></ul>
+        <p id="emptyNotes" class="empty">Пока нет сохранённых заметок.</p>
+      </section>
+    </main>
+
+    <script>
+      (function () {
+        const STORAGE_KEY = "speech_notes_v1";
+
+        const startBtn = document.getElementById("startBtn");
+        const stopBtn = document.getElementById("stopBtn");
+        const saveBtn = document.getElementById("saveBtn");
+        const statusValue = document.getElementById("statusValue");
+        const messageText = document.getElementById("messageText");
+        const finalTranscriptEl = document.getElementById("finalTranscript");
+        const interimTranscriptEl = document.getElementById("interimTranscript");
+        const notesList = document.getElementById("notesList");
+        const emptyNotes = document.getElementById("emptyNotes");
+
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const supported = typeof SpeechRecognition !== "undefined";
+
+        let recognition = null;
+        let isListening = false;
+        let finalTranscript = "";
+        let notes = loadNotes();
+
+        renderNotes();
+        renderTranscript();
+
+        if (!supported) {
+          setStatus("unsupported", "Ваш Safari не поддерживает Web Speech API (SpeechRecognition/webkitSpeechRecognition).");
+          startBtn.disabled = true;
+          stopBtn.disabled = true;
+          return;
+        }
+
+        setStatus("stopped", "Нажмите Start и разрешите доступ к микрофону.");
+
+        startBtn.addEventListener("click", startListening);
+        stopBtn.addEventListener("click", stopListening);
+        saveBtn.addEventListener("click", saveNote);
+
+        function createRecognition() {
+          const rec = new SpeechRecognition();
+          rec.lang = "ru-RU";
+          rec.continuous = true;
+          rec.interimResults = true;
+
+          rec.onstart = function () {
+            isListening = true;
+            setStatus("listening", "Идёт распознавание...");
+          };
+
+          rec.onresult = function (event) {
+            let interimText = "";
+
+            for (let i = event.resultIndex; i < event.results.length; i += 1) {
+              const chunk = event.results[i][0].transcript;
+              if (event.results[i].isFinal) {
+                finalTranscript += chunk;
+                if (!finalTranscript.endsWith(" ")) {
+                  finalTranscript += " ";
+                }
+              } else {
+                interimText += chunk;
+              }
+            }
+
+            finalTranscriptEl.textContent = finalTranscript.trim();
+            interimTranscriptEl.textContent = interimText.trim();
+          };
+
+          rec.onerror = function (event) {
+            const details = event && event.error ? `Ошибка: ${event.error}` : "Неизвестная ошибка";
+            setStatus("error", details);
+          };
+
+          rec.onend = function () {
+            isListening = false;
+            setStatus("stopped", "Распознавание остановлено.");
+          };
+
+          return rec;
+        }
+
+        function startListening() {
+          if (!supported) {
+            return;
+          }
+
+          if (isListening) {
+            return;
+          }
+
+          try {
+            if (!recognition) {
+              recognition = createRecognition();
+            }
+
+            interimTranscriptEl.textContent = "";
+            recognition.start();
+          } catch (error) {
+            setStatus("error", `Не удалось запустить распознавание: ${error.message || "unknown"}`);
+          }
+        }
+
+        function stopListening() {
+          if (!recognition || !isListening) {
+            return;
+          }
+          recognition.stop();
+        }
+
+        function saveNote() {
+          const text = finalTranscript.trim();
+          if (!text) {
+            setStatus("stopped", "Нет текста для сохранения.");
+            return;
+          }
+
+          const note = {
+            id: Date.now(),
+            text,
+            createdAt: new Date().toISOString(),
+          };
+
+          notes.unshift(note);
+          persistNotes();
+          renderNotes();
+
+          finalTranscript = "";
+          renderTranscript();
+          setStatus("stopped", "Заметка сохранена в localStorage.");
+        }
+
+        function deleteNote(id) {
+          notes = notes.filter((item) => item.id !== id);
+          persistNotes();
+          renderNotes();
+        }
+
+        function renderTranscript() {
+          finalTranscriptEl.textContent = finalTranscript.trim();
+          interimTranscriptEl.textContent = "";
+        }
+
+        function setStatus(type, message) {
+          statusValue.className = `status-value ${type}`;
+          statusValue.textContent = type;
+          messageText.textContent = message;
+        }
+
+        function renderNotes() {
+          notesList.innerHTML = "";
+
+          if (notes.length === 0) {
+            emptyNotes.style.display = "block";
+            return;
+          }
+
+          emptyNotes.style.display = "none";
+
+          notes.forEach((note) => {
+            const li = document.createElement("li");
+            li.className = "note-item";
+
+            const text = document.createElement("p");
+            text.className = "note-text";
+            text.textContent = note.text;
+
+            const meta = document.createElement("div");
+            meta.className = "note-meta";
+
+            const time = document.createElement("span");
+            time.className = "note-time";
+            time.textContent = formatDate(note.createdAt);
+
+            const del = document.createElement("button");
+            del.className = "btn-delete";
+            del.type = "button";
+            del.textContent = "Delete";
+            del.addEventListener("click", () => deleteNote(note.id));
+
+            meta.appendChild(time);
+            meta.appendChild(del);
+
+            li.appendChild(text);
+            li.appendChild(meta);
+            notesList.appendChild(li);
+          });
+        }
+
+        function loadNotes() {
+          try {
+            const raw = localStorage.getItem(STORAGE_KEY);
+            if (!raw) {
+              return [];
+            }
+            const parsed = JSON.parse(raw);
+            return Array.isArray(parsed) ? parsed : [];
+          } catch (_) {
+            return [];
+          }
+        }
+
+        function persistNotes() {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(notes));
+        }
+
+        function formatDate(isoString) {
+          const date = new Date(isoString);
+          if (Number.isNaN(date.getTime())) {
+            return "";
+          }
+
+          return new Intl.DateTimeFormat("ru-RU", {
+            dateStyle: "short",
+            timeStyle: "short",
+          }).format(date);
+        }
+      })();
+    </script>
+  </body>
+</html>

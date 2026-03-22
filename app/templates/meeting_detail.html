@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}Meeting{% endblock %}
+{% block content %}
+{% if not meeting %}
+<section class="card">
+  <h1>Meeting not found</h1>
+</section>
+{% else %}
+<section class="card" data-meeting-id="{{ meeting.id }}" id="meetingDetailRoot">
+  <h1>{{ meeting.title }}</h1>
+  <p>
+    <span class="badge {{ meeting.status }}">{{ meeting.status }}</span>
+    <span class="muted">Created: {{ meeting.created_at }}</span>
+    <span class="muted">Duration: {{ "%.2f"|format(meeting.duration_sec or 0) }} sec</span>
+  </p>
+
+  {% if meeting.error_message %}
+    <p class="error">Error: {{ meeting.error_message }}</p>
+  {% endif %}
+
+  <div class="actions">
+    <form id="renameForm" class="inline-form">
+      <input id="renameInput" class="input" type="text" value="{{ meeting.title }}" maxlength="255" />
+      <button type="submit" class="btn">Rename</button>
+    </form>
+    <button id="reprocessBtn" class="btn">Reprocess</button>
+    <button id="deleteBtn" class="btn btn-danger">Delete</button>
+    <a class="btn" href="/api/meetings/{{ meeting.id }}/export.txt">Export TXT</a>
+    <a class="btn" href="/api/meetings/{{ meeting.id }}/export.md">Export Markdown</a>
+  </div>
+
+  <h2>Transcript</h2>
+  <pre class="transcript-box">{{ meeting.transcript_text }}</pre>
+</section>
+
+<section class="card">
+  <h2>Search in this meeting</h2>
+  <form method="GET" action="/meetings/{{ meeting.id }}" class="inline-form">
+    <input type="text" name="q" class="input" value="{{ q }}" placeholder="Enter phrase" />
+    <button class="btn" type="submit">Search</button>
+  </form>
+
+  {% if q %}
+    <h3>Results for "{{ q }}"</h3>
+    {% if meeting_search_results %}
+      <ul class="meeting-list">
+        {% for row in meeting_search_results %}
+          <li>
+            <div><strong>{{ "%.2f"|format(row.start_sec) }} - {{ "%.2f"|format(row.end_sec) }} sec</strong></div>
+            <div>{{ row.snippet | safe }}</div>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="muted">No matches.</p>
+    {% endif %}
+  {% endif %}
+</section>
+
+<section class="card">
+  <h2>Segments</h2>
+  {% if segments %}
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Start</th>
+          <th>End</th>
+          <th>Text</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for seg in segments %}
+          <tr>
+            <td>{{ "%.2f"|format(seg.start_sec) }}</td>
+            <td>{{ "%.2f"|format(seg.end_sec) }}</td>
+            <td>{{ seg.text }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="muted">No transcript segments yet.</p>
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}Local Meeting Recorder{% endblock %}</title>
+  <link rel="stylesheet" href="/static/app.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="container">
+      <a class="brand" href="/">Local Meeting Recorder</a>
+      <nav>
+        <a href="/">Record</a>
+        <a href="/meetings">Meetings</a>
+        <a href="/search">Search</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    {% block content %}{% endblock %}
+  </main>
+
+  <script src="/static/app.js"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

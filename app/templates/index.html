@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Record Meeting{% endblock %}
+{% block content %}
+<section class="card">
+  <h1>Record Meeting</h1>
+  <p>Record from Mac microphone in browser and process locally on this machine.</p>
+
+  <label class="label" for="meetingTitle">Meeting title (optional)</label>
+  <input id="meetingTitle" class="input" type="text" placeholder="Weekly sync" maxlength="255" />
+
+  <div class="record-controls">
+    <button id="startRecordingBtn" class="btn btn-primary">Start Recording</button>
+    <button id="stopRecordingBtn" class="btn btn-danger" disabled>Stop Recording</button>
+  </div>
+
+  <div class="status-line">
+    <span>Status:</span>
+    <span id="recordingStatusBadge" class="badge idle">idle</span>
+  </div>
+
+  <p id="recordingError" class="error"></p>
+</section>
+
+<section class="card">
+  <h2>Recent Meetings</h2>
+  {% if meetings %}
+    <ul class="meeting-list">
+      {% for meeting in meetings %}
+        <li>
+          <a href="/meetings/{{ meeting.id }}">{{ meeting.title }}</a>
+          <span class="badge {{ meeting.status }}">{{ meeting.status }}</span>
+          <span class="muted">{{ meeting.created_at }}</span>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="muted">No meetings yet.</p>
+  {% endif %}
+</section>
+{% endblock %}

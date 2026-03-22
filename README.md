@@ -1,16 +1,171 @@
-# new_project
+# Local Meeting Recorder (macOS, local-first MVP)
 
-A new Flutter project.
+## 1. What this app does
+This app records meetings from your Mac microphone in the browser, uploads audio to a local FastAPI backend (`127.0.0.1`), runs local preprocessing/transcription, stores transcript and segments in local SQLite, and provides full-text search with SQLite FTS5.
 
-## Getting Started
+Pipeline:
+1. Record audio via `MediaRecorder` in browser.
+2. Save original file in `./data/recordings/`.
+3. Normalize audio with `ffmpeg` to mono/16kHz/PCM WAV.
+4. Split speech windows with Silero VAD.
+5. Transcribe each segment locally with `whisper.cpp`.
+6. Save transcript + segments to SQLite (`./data/app.db`).
+7. Index text in `transcript_fts` (FTS5).
 
-This project is a starting point for a Flutter application.
+## 2. Local components used
+- Python 3.11+
+- FastAPI + Jinja2
+- SQLite + FTS5
+- ffmpeg + ffprobe
+- Silero VAD (`silero-vad` + `torch`)
+- whisper.cpp CLI + GGML model
 
-A few resources to get you started if this is your first Flutter project:
+No OpenAI API, no cloud speech APIs, no remote server required for runtime.
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+## 3. Install Python dependencies
+```bash
+cd "/Users/maksimshatokhin/Documents/New project"
+python3.11 -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip
+pip install -r requirements.txt
+```
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## 4. Install ffmpeg on macOS
+```bash
+brew install ffmpeg
+ffmpeg -version
+ffprobe -version
+```
+
+## 5. Build and connect whisper.cpp
+Option A (recommended): run helper script
+```bash
+./scripts/setup_whisper_cpp.sh
+```
+
+Option B (manual):
+```bash
+mkdir -p models
+cd models
+git clone https://github.com/ggerganov/whisper.cpp.git
+cd whisper.cpp
+cmake -B build
+cmake --build build --config Release -j
+```
+
+## 6. Download model
+If you used `./scripts/setup_whisper_cpp.sh`, model is already copied to `./models/ggml-base.bin`.
+
+Manual download:
+```bash
+cd models/whisper.cpp
+./models/download-ggml-model.sh base
+cp models/ggml-base.bin ../ggml-base.bin
+```
+
+## 7. Run the app
+```bash
+source .venv/bin/activate
+export WHISPER_CPP_BIN="/Users/maksimshatokhin/Documents/New project/models/whisper.cpp/build/bin/whisper-cli"
+export WHISPER_MODEL_PATH="/Users/maksimshatokhin/Documents/New project/models/ggml-base.bin"
+uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+```
+
+## 8. Open UI
+Open in browser:
+- [http://127.0.0.1:8000](http://127.0.0.1:8000)
+
+Pages:
+- `/` recording panel + latest meetings
+- `/meetings` all meetings
+- `/meetings/{id}` meeting detail, segments, export, rename/delete/reprocess
+- `/search` global search by transcript text
+
+## 9. Record first meeting
+1. Open `/`.
+2. Enter optional title.
+3. Click **Start Recording**.
+4. Speak into Mac microphone.
+5. Click **Stop Recording**.
+6. App uploads audio and starts local processing.
+7. Open meeting page and wait for status `ready`.
+
+## 10. Search text
+- Global search: `/search`
+- Meeting-local search: `/meetings/{id}?q=your+phrase`
+
+Search uses only SQLite FTS5 (`transcript_fts`).
+
+## 11. Known MVP limitations
+- No speaker diarization.
+- Recognition quality depends on model size and microphone quality.
+- Long meetings process with noticeable delay.
+- VAD segmentation can miss or split speech incorrectly.
+- Local single-user MVP, not a production dictation suite.
+
+## 12. How to swap backend later (WhisperKit/MLX)
+Current STT integration is behind abstraction:
+- `SpeechTranscriber` interface: `app/services/transcriber.py`
+- Current implementation: `WhisperCppTranscriber`
+
+To switch backend:
+1. Add new class (`WhisperKitTranscriber` or `MLXWhisperTranscriber`) implementing `transcribe_segment(audio_path) -> str`.
+2. Update dependency wiring in `app/deps.py` (`get_transcriber`).
+3. Keep `TranscriptPipeline` unchanged.
+
+## API routes
+Implemented API:
+- `GET /api/health`
+- `POST /api/meetings/upload-audio`
+- `GET /api/meetings`
+- `GET /api/meetings/{meeting_id}`
+- `GET /api/meetings/{meeting_id}/transcript`
+- `PATCH /api/meetings/{meeting_id}`
+- `DELETE /api/meetings/{meeting_id}`
+- `POST /api/meetings/{meeting_id}/reprocess`
+- `GET /api/search?q=...`
+- `GET /api/meetings/{meeting_id}/search?q=...`
+- `GET /api/meetings/{meeting_id}/export.txt`
+- `GET /api/meetings/{meeting_id}/export.md`
+
+## Project layout
+```text
+app/
+  main.py
+  config.py
+  database.py
+  models.py
+  schemas.py
+  deps.py
+  routes/
+    health.py
+    meetings.py
+    recordings.py
+    search.py
+    exports.py
+  services/
+    recorder.py
+    audio_preprocess.py
+    vad.py
+    transcriber.py
+    transcript_pipeline.py
+    storage.py
+    search.py
+    exports.py
+  templates/
+    base.html
+    index.html
+    meetings.html
+    meeting_detail.html
+    search.html
+  static/
+    app.css
+    app.js
+data/
+models/
+scripts/
+tests/
+requirements.txt
+README.md
+```
